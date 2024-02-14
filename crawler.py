@@ -51,16 +51,16 @@ class Crawler:
 
     def _extract_text(self, soup): 
         #Entire website text
-        complete_text = soup.get_text()
+        complete_text = soup.get_text(separator='\n')
 
         #Using tags defined in settings
         if self.settings['specific_tags'][0] is not None: 
-            text = soup.find_all(self.settings['specific_tags'])
-            percentage = len(text) / len(complete_text)
+            text = '\n'.join(tag.get_text() for tag in soup.find_all(self.settings['specific_tags']))
+            percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
         #Using <p> tags
         elif self.settings['only_p_text']: 
-            text = soup.find_all('p')
-            percentage = len(text) / len(complete_text)
+            text = '\n'.join(tag.get_text() for tag in soup.find_all('p'))
+            percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
         #Fallback option: Extracting anything
         else: 
             text = complete_text
@@ -82,6 +82,8 @@ class Crawler:
             date = header_date.get('content')
 
         #TODO: Implement fallback method with first datelike object
+        datetime_pattern = '\d{1,4}[-:/\.\\]\d{1,2}[-:/\.\\]\d{1,4}'
+        #search in whole text, not only the extracted one / <p> one 
         return title, date
 
 
@@ -93,9 +95,9 @@ class Crawler:
 
 
     def get_base_url(self, url):
-        pattern = r"https?://.*\.(?:org|com|fr)"
+        pattern = r"https?://[^/]*"
         site = re.match(pattern, url)
         if site is None: 
-            raise ValueError("Either the link is not valid or I fucked up") 
+            raise ValueError("The entered starting page is not recognized as valid link") 
         print('base url: ', site)
         return site.group() #string from match object

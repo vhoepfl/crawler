@@ -53,7 +53,7 @@ class TerminalOutput:
                 int(queue_len/10)*'*'
         
         text =  f"Step {self.total_count}: {url}\n"
-        text += f"{percentage*100} % of content of current page extracted\n\n"
+        text += f"{percentage*100} % of content of current page extracted\n"
         text += f"{date}: {title}"
         
         if self.print_count == self.frequency: 
