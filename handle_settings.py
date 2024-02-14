@@ -43,4 +43,5 @@ def read_settings_file(dir):
     return settings
 
 def request_starting_page(): 
-    starting_page = input("Please enter a starting page.")
+    starting_page = input("Please enter a starting page: ")
+    return starting_page
