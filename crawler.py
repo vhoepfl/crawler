@@ -26,7 +26,6 @@ class Crawler:
 
     def scrape(self): 
         TerminalOut = handle_output.TerminalOutput(verbose=True, frequency=1)
-        fw = open('testout', 'a')
         while self.queue: 
             url, soup = self._scrape_single_page_from_queue()
             complete_text, text, percentage = self._extract_text(soup)
@@ -34,7 +33,6 @@ class Crawler:
             #Adding new links to queue
             self._extract_links(soup)
             TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, flag_fallback)
-            fw.write(str(title) + '\n' + str(date) + '\n\n' + str(text) + '\n----------------\n')
             sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
