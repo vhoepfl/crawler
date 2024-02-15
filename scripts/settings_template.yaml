@@ -21,6 +21,9 @@ text_extraction:
   only_p_text: True
   # If set to True, only the text of the p (paragraph) tags is extracted
   specific_tags:
-    - Null
+    id: Null
+    class: Null
   # When modified, only text from those tags is extracted. This overwrites the 'only_p_text' option. 
-  # Currently untested, since I didn't find a page where this is actually working.
+  # Example: 
+  # id: article iliade - for the following html: </div><div id="article-iliade" class="et_pb_module et_pb_text et_pb_text_2  et_pb_text_align_left et_pb_bg_layout_light"> [article]
+  # class: article - for <article id="post-1882" class="post_item_single post_type_post post_format_ post-1882 post type-post s

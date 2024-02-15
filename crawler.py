@@ -4,6 +4,7 @@ import re
 import handle_output
 import handle_output
 from time import sleep
+import logging
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
@@ -33,18 +34,20 @@ class Crawler:
         TerminalOut = handle_output.TerminalOutput(verbose=True, frequency=1)
         while self.queue: 
             url, soup = self._scrape_single_page_from_queue()
+            #Extracting data
             complete_text, text, percentage = self._extract_text(soup)
-            title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
+            if percentage != 0: 
+                title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
+            else: 
+                title = None; date = None; date_fallback_flag = None; volume = None 
             #Adding new links to queue
             self._extract_links(soup)
             TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
             sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
-        #updating queues
         url = self.queue.pop()
         self.visited.add(url)
-
         r = requests.get(url)
         return url, BeautifulSoup(r.content, 'html.parser')
 
@@ -61,8 +64,9 @@ class Crawler:
                 # Checks if link is a weird local link
                 elif re.match(self.local_links, link): 
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
-                        if link not in self.visited: # Checks if already visited
-                            self.queue.add(self.base_url + '/' + link)
+                        full_link = self.base_url + '/' + link #combine local link with base url to get a full one
+                        if full_link not in self.visited: # Checks if already visited
+                            self.queue.add(full_link)
 
                     
 
@@ -70,16 +74,16 @@ class Crawler:
         #Entire website text
         complete_text = soup.get_text(separator='\n')
 
-        #Using tags defined in 
-        specific_tags = self.settings['text_extraction']['specific_tags']
-        if specific_tags[0] is not None: 
-            text = '\n'.join(tag.get_text() for tag in soup.find_all(specific_tags))
+        #Using tags defined in settings
+        tag_ids = self.settings['text_extraction']['specific_tags']['id']
+        tag_classes = self.settings['text_extraction']['specific_tags']['class']
+        if tag_ids is not None: 
+            text = '\n'.join(tag.get_text() for tag in soup.find_all(id=tag_ids))
             percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
-        #Using <p> tags
-        elif self.settings['text_extraction']['only_p_text']: 
-            text = '\n'.join(tag.get_text() for tag in soup.find_all('p'))
+        elif tag_classes is not None: 
+            text = '\n'.join(tag.get_text() for tag in soup.find_all(tag_classes))
             percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
-        
+
         #Fallback option: Extracting anything
         else: 
             text = complete_text
