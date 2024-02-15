@@ -97,9 +97,9 @@ class Crawler:
         header_title = soup.find('meta', property='og:title')
         header_date = soup.find('meta', property="article:published_time")
         
-        if header_title is not None: #soup.find() returns None if not found
+        if header_title is not None: # soup.find() returns None if not found
             title = header_title.get('content')
-        if False: #header_date is not None: 
+        if header_date is not None: 
             date = header_date.get('content')
             if self.settings['date']['deactivate_if_head']: 
                 self.search_date_only_in_head = True # Deactivate fallback method

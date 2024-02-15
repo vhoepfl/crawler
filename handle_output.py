@@ -63,7 +63,9 @@ class TerminalOutput:
                 print('\n\n' + visual)
             self.print_count = 0
 
-        logging.info('\n' + visual + '\n' + text + '\n\n') # TODO: Potentially include scraped text
+        clean_text = '\n'.join([line.strip() for line in scraped_text.split('\n') if line.strip() != ''])
+        print('CLEAN', clean_text[:100])
+        logging.info('\n' + visual + '\n' + text + '\n' + clean_text + '\n\n') # TODO: Potentially include scraped text
 
 
         
