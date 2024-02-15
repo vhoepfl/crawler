@@ -55,9 +55,9 @@ class TerminalOutput:
         text =  f"Step {self.total_count}: {url}\n"
         text += f"{percentage*100} % of content of current page extracted\n"
         if flag_fallback: 
-            text += f"(Extr. site text) {date}: {title}"
+            text += f"(!) {date}: {title}"
         else: 
-            text += f"(Extr. site text) {date}: {title}"
+            text += f"{date}: {title}"
         
         if self.print_count == self.frequency: 
             if self.verbose: 
@@ -66,7 +66,7 @@ class TerminalOutput:
                 print('\n\n' + visual)
             self.print_count = 0
 
-        logging.info(visual + '\n' + text)
+        logging.info('\n' + visual + '\n' + text + '\n' + scraped_text + '\n\n')
 
 
         

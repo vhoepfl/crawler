@@ -14,16 +14,19 @@ class Crawler:
         self.base_url = self.get_base_url(starting_url)
         
         if self.settings['general']['ignore_robots.txt']: 
+            # TODO: Implement? 
             self.delay = 0
         else:
-            self.delay = self.get_robotstxt_delay()
+            self.delay = 0.1
+
+        self.ignored_pages = re.compile('.*\.(png|pdf|jpg)')
 
         datetime_string = '(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
         self.date_pattern = re.compile(datetime_string)
 
     def scrape(self): 
         TerminalOut = handle_output.TerminalOutput(verbose=True, frequency=1)
-        
+        fw = open('testout', 'a')
         while self.queue: 
             url, soup = self._scrape_single_page_from_queue()
             complete_text, text, percentage = self._extract_text(soup)
@@ -31,6 +34,7 @@ class Crawler:
             #Adding new links to queue
             self._extract_links(soup)
             TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, flag_fallback)
+            fw.write(str(title) + '\n' + str(date) + '\n\n' + str(text) + '\n----------------\n')
             sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
@@ -46,10 +50,10 @@ class Crawler:
         for raw_link in raw_links: 
             link = raw_link.get('href') 
             if link is not None: 
-                #Checks if link is relative / on same site
-                if re.match(self.base_url, link):
-                    if link not in self.visited: 
-                        self.queue.add(link)
+                if re.match(self.base_url, link): # Checks if link is relative / on same site
+                    if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
+                        if link not in self.visited: # Checks if link already visited
+                            self.queue.add(link)
 
     def _extract_text(self, soup): 
         #Entire website text
@@ -74,9 +78,9 @@ class Crawler:
 
     def _extract_metadata(self, soup, complete_text): 
         flag_fallback = False
-        #Returns None if not found in header
         title = None
         date = None
+
         #Extracting date and title from the head of the html page
         header_title = soup.find('meta', property='og:title')
         header_date = soup.find('meta', property="article:published_time")
@@ -93,9 +97,8 @@ class Crawler:
             if date_match:
                 date = date_match.group()
                 flag_fallback = True     
-        #search in whole text, not only the extracted one / <p> one 
+        
         return title, date, flag_fallback
-
 
     def get_base_url(self, url):
         pattern = r"https?://[^/]*"
