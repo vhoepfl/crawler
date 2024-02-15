@@ -7,7 +7,7 @@ from time import sleep
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
-        self.header_date_exists = False #If a date is found in the header, the fallback date search is deactivated
+        self.search_date_only_in_head = False #If a date is found in the header, the fallback date search is deactivated
         self.settings = settings
         self.queue = set([starting_url])
         self.visited = set()
@@ -19,21 +19,25 @@ class Crawler:
             self.delay = 0.1
 
         self.base_url = self.get_base_url(starting_url)
-        self.ignored_pages = re.compile('.*\.(png|pdf|jpg)')
-        self.local_links = re.compile('^[^\/]+$')
+        self.ignored_pages = re.compile(r'.*\.(png|pdf|jpg)')
+        self.local_links = re.compile(r'^[^\/]+$')
 
-        datetime_string = '(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
+        datetime_string = r'(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
         self.date_pattern = re.compile(datetime_string)
+
+        volume_string = r'\b(?:[Vv]ol(?:ume)?|[Nn]um(?:éro)?|[Nn]o?|[ÉéEe]d(?:ition)?|Issue|Iss|Livraison|Livr)[\Wº°]{1,3}([IVXLC]+|\d+)'
+        self.volume_pattern = re.compile(volume_string) # group 1 returns the number either in arabic or roman numerals
+
 
     def scrape(self): 
         TerminalOut = handle_output.TerminalOutput(verbose=True, frequency=1)
         while self.queue: 
             url, soup = self._scrape_single_page_from_queue()
             complete_text, text, percentage = self._extract_text(soup)
-            title, date, flag_fallback = self._extract_metadata(soup, complete_text)
+            title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
             #Adding new links to queue
             self._extract_links(soup)
-            TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, flag_fallback)
+            TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
             sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
@@ -49,13 +53,15 @@ class Crawler:
         for raw_link in raw_links: 
             link = raw_link.get('href') 
             if link is not None: 
-                if re.match(self.base_url, link): # Checks if link is relative / on same site
+                # Checks if link is relative / on same site
+                if re.match(self.base_url, link): 
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
-                        if link not in self.visited: # Checks if link already visited
+                        if link not in self.visited: # Checks if already visited
                             self.queue.add(link)
-                elif re.match(self.local_links, link):
+                # Checks if link is a weird local link
+                elif re.match(self.local_links, link): 
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
-                        if link not in self.visited: # Checks if link already visited
+                        if link not in self.visited: # Checks if already visited
                             self.queue.add(self.base_url + '/' + link)
 
                     
@@ -82,9 +88,10 @@ class Crawler:
         return complete_text, text, percentage
 
     def _extract_metadata(self, soup, complete_text): 
-        flag_fallback = False
+        date_fallback = False
         title = None
         date = None
+        volume = None
 
         #Extracting date and title from the head of the html page
         header_title = soup.find('meta', property='og:title')
@@ -92,18 +99,27 @@ class Crawler:
         
         if header_title is not None: #soup.find() returns None if not found
             title = header_title.get('content')
-        if header_date is not None: 
+        if False: #header_date is not None: 
             date = header_date.get('content')
-            self.header_date_exists = True #Deactivate fallback method
+            if self.settings['date']['deactivate_if_head']: 
+                self.search_date_only_in_head = True # Deactivate fallback method
 
         #Fallback method: Extract first date-like string from website text
-        if not self.header_date_exists: 
-            date_match = re.search(self.date_pattern, complete_text)
-            if date_match:
-                date = date_match.group()
-                flag_fallback = True     
+        if self.settings['date']['use_fallback_method']: 
+            if not self.search_date_only_in_head: 
+                date_match = re.search(self.date_pattern, complete_text)
+                if date_match:
+                    date = date_match.group()
+                    date_fallback = True     
+
+        # Automatical extraction of volume numbers from title
+        if self.settings['volume']['extract_volume'] and title is not None: 
+            vol_match = re.search(self.volume_pattern, title)
+            #breakpoint()
+            if vol_match: 
+                volume = vol_match.group(1)
         
-        return title, date, flag_fallback
+        return title, date, date_fallback, volume
 
     def get_base_url(self, url):
         pattern = r"https?://[^/]*"

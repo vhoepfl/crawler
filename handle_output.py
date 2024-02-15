@@ -15,7 +15,7 @@ class TerminalOutput:
         self.missing_title_and_date_count = 0
         self.total_count = 0
         
-    def record_output(self, queue_len, url, scraped_text, percentage, title, date, flag_fallback): 
+    def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, volume): 
         """
         Prints info for a single scraped page
         
@@ -53,11 +53,8 @@ class TerminalOutput:
                 int(queue_len/10)*'*'
         
         text =  f"Step {self.total_count}: {url}\n"
-        text += f"{percentage*100} % of content of current page extracted\n"
-        if flag_fallback: 
-            text += f"(!) {date}: {title}"
-        else: 
-            text += f"{date}: {title}"
+        text += f"{round(percentage, 2)*100} % of content of current page extracted\n"
+        text += f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}"
         
         if self.print_count == self.frequency: 
             if self.verbose: 
@@ -66,7 +63,7 @@ class TerminalOutput:
                 print('\n\n' + visual)
             self.print_count = 0
 
-        logging.info('\n' + visual + '\n' + text + '\n' + scraped_text + '\n\n')
+        logging.info('\n' + visual + '\n' + text + '\n\n') # TODO: Potentially include scraped text
 
 
         
