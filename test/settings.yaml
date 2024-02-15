@@ -1,0 +1,20 @@
+# ROBOTS.TXT
+general: 
+  ignore_robots.txt: True
+  # If set to True, a wait period of 0.1 secs is used
+
+# DATE
+date: 
+  use_fallback_method: True 
+  # If set to True: If no date found in html head, date is taken from the first date in the website text. 
+  deactivate_if_header: True
+  # If set to True: When a date is found in a head, the fallback option is deactivated.
+
+#WEBSITE TEXT
+text_extraction: 
+  only_p_text: True
+  # If set to True, only the text of the p (paragraph) tags is extracted
+  specific_tags:
+    - Null
+  # When modified, only text from those tags is extracted. This overwrites the 'only_p_text' option. 
+  # Currently untested, since I didn't find a page where this is actually working.

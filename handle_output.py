@@ -15,7 +15,7 @@ class TerminalOutput:
         self.missing_title_and_date_count = 0
         self.total_count = 0
         
-    def record_output(self, queue_len, url, scraped_text, percentage, title, date): 
+    def record_output(self, queue_len, url, scraped_text, percentage, title, date, flag_fallback): 
         """
         Prints info for a single scraped page
         
@@ -54,7 +54,10 @@ class TerminalOutput:
         
         text =  f"Step {self.total_count}: {url}\n"
         text += f"{percentage*100} % of content of current page extracted\n"
-        text += f"{date}: {title}"
+        if flag_fallback: 
+            text += f"(Extr. site text) {date}: {title}"
+        else: 
+            text += f"(Extr. site text) {date}: {title}"
         
         if self.print_count == self.frequency: 
             if self.verbose: 
