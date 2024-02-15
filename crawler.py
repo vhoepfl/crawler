@@ -11,7 +11,6 @@ class Crawler:
         self.settings = settings
         self.queue = set([starting_url])
         self.visited = set()
-        self.base_url = self.get_base_url(starting_url)
         
         if self.settings['general']['ignore_robots.txt']: 
             # TODO: Implement? 
@@ -19,7 +18,9 @@ class Crawler:
         else:
             self.delay = 0.1
 
+        self.base_url = self.get_base_url(starting_url)
         self.ignored_pages = re.compile('.*\.(png|pdf|jpg)')
+        self.local_links = re.compile('^[^\/]+$')
 
         datetime_string = '(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
         self.date_pattern = re.compile(datetime_string)
@@ -52,6 +53,12 @@ class Crawler:
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
                         if link not in self.visited: # Checks if link already visited
                             self.queue.add(link)
+                elif re.match(self.local_links, link):
+                    if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
+                        if link not in self.visited: # Checks if link already visited
+                            self.queue.add(self.base_url + '/' + link)
+
+                    
 
     def _extract_text(self, soup): 
         #Entire website text
