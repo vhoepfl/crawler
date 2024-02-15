@@ -7,8 +7,14 @@ general:
 date: 
   use_fallback_method: True 
   # If set to True: If no date found in html head, date is taken from the first date in the website text. 
-  deactivate_if_header: True
+  deactivate_if_head: True
   # If set to True: When a date is found in a head, the fallback option is deactivated.
+
+#VOLUME
+volume: 
+  extract_volume: True
+  # If set to True: Any volume-like string is extracted from the title (but not the text)
+
 
 #WEBSITE TEXT
 text_extraction: 
