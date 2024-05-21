@@ -68,7 +68,6 @@ class TerminalOutput:
         logging.info(f"{percentage} % of content of current page extracted")
         logging.info(f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}")
 
-
     def get_quality_rating(self, percentage, scraped_text:str):
         """
         Checks if the text fulfills the quality requirements. 
@@ -76,20 +75,29 @@ class TerminalOutput:
         0 if a check failed, 1 else
         """
         clean_text_lines = [i.strip() for i in scraped_text.split('\n') if i.strip() != '']
+        clean_text_words = [i.strip() for i in scraped_text.split() if i.strip() != '']
+
         if self.settings['file']['percentage_limit'] != -1:
             if percentage < self.settings['file']['percentage_limit']:
-                print(f'Filewrite - failed percentage: {percentage}')
+                if self.print_count == self.frequency:
+                    if self.verbose: 
+                        print(f'Filewrite - failed percentage: {percentage}')
                 logging.info(f'Filewrite - failed percentage: {percentage}\n')
                 return 0
-        if self.settings['file']['line_number_limit'] != -1:
-            if len(clean_text_lines) < self.settings['file']['line_number_limit']:
-                print(f'Filewrite - failed lenght: {len(clean_text_lines)}')
-                logging.info(f'Filewrite - failed lenght: {len(clean_text_lines)}\n')
+        if self.settings['file']['word_count_limit'] != -1:
+            if len(clean_text_words) < self.settings['file']['word_count_limit']:
+                if self.print_count == self.frequency:
+                    if self.verbose: 
+                        print(f'Filewrite - failed lenght: {len(clean_text_lines)}')
+                logging.info(clean_text_lines)
+                logging.info(f'Filewrite - failed lenght: {len(clean_text_words)}\n')
                 return 0
         if self.settings['file']['mean_line_lenght_limit'] != -1:
-            if len(scraped_text.split(' '))/len(clean_text_lines) < self.settings['file']['mean_line_lenght_limit']:
-                print(f'Filewrite - failed mean line length: {len(scraped_text.split())/len(clean_text_lines)}')
-                logging.info(f'Filewrite - failed mean line length: {len(scraped_text.split())/len(clean_text_lines)}\n')
+            if len(clean_text_words)/len(clean_text_lines) < self.settings['file']['mean_line_lenght_limit']:
+                if self.print_count == self.frequency:
+                    if self.verbose: 
+                        print(f'Filewrite - failed mean line length: {len(clean_text_words)/len(clean_text_lines)}')
+                logging.info(f'Filewrite - failed mean line length: {len(clean_text_words)/len(clean_text_lines)}\n')
                 return 0
         print('Filewrite - success')
         logging.info('Filewrite - success\n')
