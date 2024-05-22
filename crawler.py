@@ -11,7 +11,7 @@ class Crawler:
         self.session = requests.Session()
         #self.session.proxies.update(proxies)
 
-        self.TerminalOut = handle_output.TerminalOutput(settings['io'], folder=settings['dir'], filename='scraped_pages.txt')
+        self.OutputHandler = handle_output.TerminalOutput(settings['io'], folder=settings['dir'], filename='scraped_pages.txt')
 
         self.search_date_only_in_head = False #If a date is found in the header, the fallback date search is deactivated
         self.settings = settings
@@ -47,8 +47,9 @@ class Crawler:
 
             # Adding new links to queue
             self._extract_links(soup)
-            self.TerminalOut.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
-            self.TerminalOut.write_output(url, text, title, date, volume, percentage)
+            self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
+            self.OutputHandler.write_output(url, text, title, date, volume, percentage)
+            self.OutputHandler.save_html(soup, url)
             sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
@@ -123,7 +124,6 @@ class Crawler:
         else: 
             #Fallback method: Extract first date-like string from website text
             if self.settings['date']['use_fallback_method'] and not self.search_date_only_in_head:
-                print('fallbck!!', self.search_date_only_in_head)
                 date_match = re.search(self.date_pattern, complete_text)
                 if date_match:
                     date = date_match.group()

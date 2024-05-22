@@ -1,9 +1,12 @@
 import logging
 import os
+import re
 
 class TerminalOutput:
     def __init__(self, settings, folder, filename) -> None:
+        self.dir = folder
         self.output_file_path = os.path.join(folder, filename)
+        
         self.settings = settings
         self.verbose = settings['console']['verbose']
         self.frequency = settings['console']['print_one_per']
@@ -16,7 +19,16 @@ class TerminalOutput:
         self.missing_date_count = 0
         self.missing_title_and_date_count = 0
         self.total_count = 0
+
+    def save_html(self, soup, url):
+        """
+        Writes a soup html object to a file, using the url as filename
+        """
+        filename = re.sub(r'[^\w\-]+', '_', url)
+        with open(os.path.join(self.dir, 'html_files', filename), 'w', encoding='utf-8') as fw:
+            fw.write(str(soup))
         
+
     def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, volume):
         """
         Prints info for the scraping process
@@ -68,6 +80,7 @@ class TerminalOutput:
         logging.info(f"{percentage} % of content of current page extracted")
         logging.info(f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}")
 
+
     def get_quality_rating(self, percentage, scraped_text:str):
         """
         Checks if the text fulfills the quality requirements. 
@@ -89,7 +102,6 @@ class TerminalOutput:
                 if self.print_count == self.frequency:
                     if self.verbose: 
                         print(f'Filewrite - failed lenght: {len(clean_text_lines)}')
-                logging.info(clean_text_lines)
                 logging.info(f'Filewrite - failed lenght: {len(clean_text_words)}\n')
                 return 0
         if self.settings['file']['mean_line_lenght_limit'] != -1:
