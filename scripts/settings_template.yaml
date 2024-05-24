@@ -1,29 +1,39 @@
-# ROBOTS.TXT
 general: 
-  ignore_robots.txt: True
-  # If set to True, a wait period of 0.1 secs is used
+  ignore_robots.txt: True # Falls auf `False`gesetzt: Wartezeit von 0.1 Sekunden zwischen Aufrufen
 
-# DATE
-date: 
-  use_fallback_method: True 
-  # If set to True: If no date found in html head, date is taken from the first date in the website text. 
-  deactivate_if_head: True
-  # If set to True: When a date is found in a head, the fallback option is deactivated.
+metadata: 
+  date: 
+    use_fallback_method: True # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
+    deactivate_if_head: True # Sobald ein Datum im HTML-head gefunden wird; nur noch dort gesucht 
+    element: meta 
+    attrib: name
+    name: date
+    # Beispiel: 
+    # hmtl: <meta property="article:modified_time" content="2024-04-02T16:09:32+00:00">
+    # element:meta, attrib:property, name:article:published_time -> content gets extracted
 
-#VOLUME
-volume: 
-  extract_volume: True
-  # If set to True: Any volume-like string is extracted from the title (but not the text)
+  title: 
+    element: meta
+    attrib: property
+    name: og:title
 
+  volume: 
+    extract_volume: True # Jedes volume aus Titel (nicht Text) extrahiert
 
-#WEBSITE TEXT
 text_extraction: 
-  only_p_text: True
-  # If set to True, only the text of the p (paragraph) tags is extracted
-  specific_tags:
-    id: Null
-    class: Null
-  # When modified, only text from those tags is extracted. This overwrites the 'only_p_text' option. 
-  # Example: 
-  # id: article iliade - for the following html: </div><div id="article-iliade" class="et_pb_module et_pb_text et_pb_text_2  et_pb_text_align_left et_pb_bg_layout_light"> [article]
-  # class: article - for <article id="post-1882" class="post_item_single post_type_post post_format_ post-1882 post type-post s
+  only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
+  specific_tags: # Text nur extrahiert aus diesen spezifischen tags (überschreibt only_paragraphs)
+    element: Null
+    attrib: Null
+    # Example: 
+    # element: article - for <article id="post-1882" class="post_item_single post_type_post post_format_ post-1882 post type-post s
+    # attrib: article-iliade - for the following html: </div><div id="article-iliade" class="et_pb_module et_pb_text et_pb_text_2  et_pb_text_align_left et_pb_bg_layout_light"> [article]
+
+output: 
+  console: 
+    verbose: True # Gibt während des crawlen zusätzliche Infos aus
+    print_one_per: 1 # Gibt bei einer von n Websiten Infos aus
+  file: # Filteroptionen - deaktivieren mit -1
+    percentage_limit: -1 # [1-100]: Jede Seite, auf der ein niedrigerer Prozentsatz an Text extrahiert wird, wird ignoriert
+    word_count_limit: 150 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
+    mean_line_lenght_limit: 20 # Durchschnittliche Zahl an Wörtern pro (Text-)Zeile: Seite ignoriert, falls darunter

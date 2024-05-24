@@ -11,7 +11,7 @@ class Crawler:
         self.session = requests.Session()
         #self.session.proxies.update(proxies)
 
-        self.OutputHandler = handle_output.TerminalOutput(settings['io'], folder=settings['dir'], filename='scraped_pages.txt')
+        self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename='scraped_pages.txt')
 
         self.search_date_only_in_head = False #If a date is found in the header, the fallback date search is deactivated
         self.settings = settings
@@ -77,25 +77,25 @@ class Crawler:
                             self.queue.add(full_link)
 
     def _extract_text(self, soup):
+        text_settings = self.settings['text_extraction']
         #Entire website text
         complete_text = soup.get_text(separator='\n')
-
         #Using tags defined in settings
-        tag_ids = self.settings['text_extraction']['specific_tags']['id']
-        tag_classes = self.settings['text_extraction']['specific_tags']['class']
+        attribs = text_settings['specific_tags']['attrib']
+        elements = text_settings['specific_tags']['element']
         
         # Using html-tag ids
-        if tag_ids is not None: 
-            text = '\n'.join(tag.get_text() for tag in soup.find_all(id=tag_ids))
+        if attribs is not None:
+            text = '\n'.join(tag.get_text() for tag in soup.find_all(id=attribs))
         # Using html-tag classes
-        elif tag_classes is not None: 
-            text = '\n'.join(tag.get_text() for tag in soup.find_all(tag_classes))
+        elif elements is not None:
+            text = '\n'.join(tag.get_text() for tag in soup.find_all(elements))
         # Using html paragraphs
-        elif self.settings['text_extraction']['only_paragraphs']: 
+        elif text_settings['only_paragraphs']:
             paragraphs = soup.find_all('p')
             text = '\n'.join([p.get_text() for p in paragraphs])
         # Fallback option: Extracting anything
-        else: 
+        else:
             text = complete_text
         
         percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
@@ -104,38 +104,39 @@ class Crawler:
 
 
     def _extract_metadata(self, soup, complete_text):
+        date_settings = self.settings['metadata']['date']
+        title_settings = self.settings['metadata']['title']
+        volume_settings = self.settings['metadata']['volume']
+
         date_fallback = False
         title = None
         date = None
         volume = None
 
         #Extracting date and title from the head of the html page
-        cfg_title = self.settings['title']
-        cfg_date = self.settings['date']
-        header_title = soup.find(cfg_title['tag'], attrs={cfg_title['attr']: cfg_title['name']})
-        header_date = soup.find(cfg_date['tag'], attrs={cfg_date['attr']: cfg_date['name']})
+        header_title = soup.find(title_settings['element'], attrs={title_settings['attrib']: title_settings['name']})
+        header_date = soup.find(date_settings['element'], attrs={date_settings['attrib']: date_settings['name']})
         
         if header_title is not None: # soup.find() returns None if not found
             title = header_title.get('content')
         if header_date is not None:
             date = header_date.get('content')
-            if self.settings['date']['deactivate_if_head']:
+            if date_settings['deactivate_if_head']:
                 self.search_date_only_in_head = True # Deactivate fallback method
         else: 
             #Fallback method: Extract first date-like string from website text
-            if self.settings['date']['use_fallback_method'] and not self.search_date_only_in_head:
+            if date_settings['use_fallback_method'] and not self.search_date_only_in_head:
                 date_match = re.search(self.date_pattern, complete_text)
                 if date_match:
                     date = date_match.group()
-                    date_fallback = True     
+                    date_fallback = True # Flag used in output
 
         # Automatical extraction of volume numbers from title
-        if self.settings['volume']['extract_volume'] and title is not None:
+        if volume_settings['extract_volume'] and title is not None:
             vol_match = re.search(self.volume_pattern, title)
-            #breakpoint()
-            if vol_match: 
+            if vol_match:
                 volume = vol_match.group(1)
-        
+
         return title, date, date_fallback, volume
 
     def get_base_url(self, url):
@@ -144,7 +145,7 @@ class Crawler:
         """
         pattern = r"https?://[^/]*"
         site = re.match(pattern, url)
-        if site is None: 
+        if site is None:
             raise ValueError("The entered starting page is not recognized as valid link") 
         print('base url: ', site)
         return site.group() #string from match object

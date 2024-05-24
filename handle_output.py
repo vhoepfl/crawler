@@ -10,7 +10,9 @@ class TerminalOutput:
         self.settings = settings
         self.verbose = settings['console']['verbose']
         self.frequency = settings['console']['print_one_per']
-        # Count values to visualize queue
+        # Activated at each step where output is to be printed
+        self.do_print = True
+        # Count values for progress visualization
         self.print_count = 0
         self.low_count = 0
         self.mid_count = 0
@@ -69,11 +71,15 @@ class TerminalOutput:
         text += f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}"
         
         if self.print_count == self.frequency:
+            self.do_print = True
+        elif self.print_count == self.frequency and self.print is True: 
+            self.do_print = False
+        
+        if self.do_print:
             if self.verbose: 
                 print('\n\n' + visual + '\n' + text)
             else: 
                 print('\n\n' + visual)
-            self.print_count = 0
 
         logging.info(visual)
         logging.info(f"Step {self.total_count}: {url}")
@@ -92,27 +98,25 @@ class TerminalOutput:
 
         if self.settings['file']['percentage_limit'] != -1:
             if percentage < self.settings['file']['percentage_limit']:
-                if self.print_count == self.frequency:
-                    if self.verbose: 
-                        print(f'Filewrite - failed percentage: {percentage}')
-                logging.info(f'Filewrite - failed percentage: {percentage}\n')
+                if self.do_print:
+                    print(f'Checking page content - failed - percentage: {percentage}')
+                logging.info(f'Checking page content - failed - percentage: {percentage}\n')
                 return 0
         if self.settings['file']['word_count_limit'] != -1:
             if len(clean_text_words) < self.settings['file']['word_count_limit']:
-                if self.print_count == self.frequency:
-                    if self.verbose: 
-                        print(f'Filewrite - failed lenght: {len(clean_text_lines)}')
-                logging.info(f'Filewrite - failed lenght: {len(clean_text_words)}\n')
+                if self.do_print and self.verbose:
+                    print(f'Checking page content - failed - lenght: {len(clean_text_lines)}')
+                logging.info(f'Checking page content - failed - lenght: {len(clean_text_words)}\n')
                 return 0
         if self.settings['file']['mean_line_lenght_limit'] != -1:
             if len(clean_text_words)/len(clean_text_lines) < self.settings['file']['mean_line_lenght_limit']:
-                if self.print_count == self.frequency:
-                    if self.verbose: 
-                        print(f'Filewrite - failed mean line length: {len(clean_text_words)/len(clean_text_lines)}')
-                logging.info(f'Filewrite - failed mean line length: {len(clean_text_words)/len(clean_text_lines)}\n')
+                if self.do_print and self.verbose:
+                    print(f'Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}')
+                logging.info(f'Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}\n')
                 return 0
-        print('Filewrite - success')
-        logging.info('Filewrite - success\n')
+        if self.do_print and self.verbose:
+            print('Checking page content - success')
+        logging.info('Checking page content - success\n')
         return 1
 
 
