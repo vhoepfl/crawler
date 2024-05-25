@@ -13,7 +13,6 @@ class Crawler:
 
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename='scraped_pages.txt')
 
-        self.search_date_only_in_head = False #If a date is found in the header, the fallback date search is deactivated
         self.settings = settings
         self.queue = set([starting_url])
         self.visited = set()
@@ -121,11 +120,9 @@ class Crawler:
             title = header_title.get('content')
         if header_date is not None:
             date = header_date.get('content')
-            if date_settings['deactivate_if_head']:
-                self.search_date_only_in_head = True # Deactivate fallback method
         else: 
             #Fallback method: Extract first date-like string from website text
-            if date_settings['use_fallback_method'] and not self.search_date_only_in_head:
+            if date_settings['use_fallback_method']:
                 date_match = re.search(self.date_pattern, complete_text)
                 if date_match:
                     date = date_match.group()

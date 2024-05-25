@@ -4,7 +4,6 @@ general:
 metadata: 
   date: 
     use_fallback_method: True # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
-    deactivate_if_head: True # Sobald ein Datum im HTML-head gefunden wird; nur noch dort gesucht 
     element: meta 
     attrib: name
     name: date
