@@ -80,8 +80,11 @@ class Crawler:
         #Entire website text
         complete_text = soup.get_text(separator='\n')
         #Using tags defined in settings
-        attribs = text_settings['specific_tags']['attrib']
-        elements = text_settings['specific_tags']['element']
+        attribs = None if text_settings['specific_tags']['attrib'] is None else \
+            [tag.strip() for tag in text_settings['specific_tags']['attrib'].split(',')]
+        print(attribs)
+        elements = None if text_settings['specific_tags']['element'] is None else \
+            [tag.strip() for tag in text_settings['specific_tags']['element'].split(',')]
         
         # Using html-tag ids
         if attribs is not None:
