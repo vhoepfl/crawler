@@ -102,7 +102,6 @@ class Crawler:
         # Fallback option: Extracting anything
         else:
             text = complete_text
-        print(text)
         percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
         percentage = round(percentage*100)
         return complete_text, text, percentage
