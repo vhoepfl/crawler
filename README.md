@@ -14,15 +14,13 @@ Falls dies passiert, könnte es helfen, die WLAN-Verbindung aus- und wieder einz
 
 
 ## Setup
-Um den Crawler auszuführen, muss python3 installiert sein. Außerdem sind einige libraries notwendig, die über pip installiert werden können: 
-- pyyaml
-- requests
-- bs4
+Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
+`pip install pyyaml requests bs4`
 
 Darüber hinaus müssen die Dateien aus diesem github repository heruntergeladen werden. Dies geht entweder per Download über den Browser, oder idealerweise - wenn `git` installiert ist - indem im Terminal `git clone https://github.com/vhoepfl/crawler.git` ausgeführt wird. 
 
 
-Der Code kann anschließend in einem Terminal ausgeführt werden mit ```python crawler/run_crawler.py```. 
+Der Code kann anschließend in einem Terminal ausgeführt werden, indem man mit `cd crawler` in das repository geht und ```python crawler\run_crawler.py``` ausführt . 
 Dann beginnt ein hoffentlich relativ selbsterklärender Abfrageprozess, in welchem der gewünschte Speicherordner sowie die Zielwebsite eingegeben werden können. 
 Darüber hinaus wird im Speicherordner eine `settings.yaml`-Datei angelegt, in welcher die gewünschten Einstellungen für den Crawler angepasst werden können -  mehr Infos hierzu stehen im [letzten Teil dieses Texts](#einstellungen). 
 
