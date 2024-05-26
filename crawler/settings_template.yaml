@@ -1,32 +1,36 @@
 general: 
   delay: 0 # Wartezeit zwischen Aufrufen
 
+
 metadata: 
   date: 
     use_fallback_method: True # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
-    element: meta 
-    attrib: name
-    name: date
+    tag: 
+    attrib: 
+    name: 
+    # Alle 3 Elemente müssen angegeben werden! 
     # Beispiel: 
-    # hmtl: <meta property="article:modified_time" content="2024-04-02T16:09:32+00:00">
-    # element:meta, attrib:property, name:article:published_time -> content gets extracted
+    # hmtl: <meta property="article:published_time" content="2024-04-02T16:09:32+00:00">
+    # tag:meta, attrib:property, name:article:published_time -> content gets extracted
 
   title: 
-    element: meta
-    attrib: property
-    name: og:title
+    tag: 
+    attrib: 
+    name: 
+    # Alle 3 Elemente müssen spezifiziert werden! Siehe date für Details
 
   volume: 
     extract_volume: True # Jedes volume aus Titel (nicht Text) extrahiert
 
+
 text_extraction: 
   only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
-  specific_tags: # Text nur extrahiert aus diesen spezifischen tags (überschreibt only_paragraphs)
-    element: Null
-    attrib: Null
-    # Example: 
-    # element: article - for <article id="post-1882" class="post_item_single post_type_post post_format_ post-1882 post type-post s
-    # attrib: article-iliade - for the following html: </div><div id="article-iliade" class="et_pb_module et_pb_text et_pb_text_2  et_pb_text_align_left et_pb_bg_layout_light"> [article]
+  specific_tags: # HTML-Elemente identifiziert über: tag, class oder id. 
+    tag: 
+    class: 
+    id: 
+    # Mehrere Elemente können kombiniert werden, nach jedem wird unabhängig von den anderen gesucht
+
 
 output: 
   console: 

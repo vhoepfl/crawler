@@ -80,18 +80,21 @@ class Crawler:
         #Entire website text
         complete_text = soup.get_text(separator='\n')
         #Using tags defined in settings
-        attribs = None if text_settings['specific_tags']['attrib'] is None else \
-            [tag.strip() for tag in text_settings['specific_tags']['attrib'].split(',')]
-        print(attribs)
-        elements = None if text_settings['specific_tags']['element'] is None else \
-            [tag.strip() for tag in text_settings['specific_tags']['element'].split(',')]
+        tags = [] if text_settings['specific_tags']['tag'] is None else \
+            [t.strip() for t in text_settings['specific_tags']['tag'].split(',')]
+        classes = [] if text_settings['specific_tags']['class'] is None else \
+            [c.strip() for c in text_settings['specific_tags']['class'].split(',')]
+        ids = [] if text_settings['specific_tags']['id'] is None else \
+            [i.strip() for i in text_settings['specific_tags']['id'].split(',')]
         
-        # Using html-tag ids
-        if attribs is not None:
-            text = '\n'.join(tag.get_text() for tag in soup.find_all(id=attribs))
-        # Using html-tag classes
-        elif elements is not None:
-            text = '\n'.join(tag.get_text() for tag in soup.find_all(elements))
+
+        # Custom filter function
+        def match_ids_and_classes(tag):
+            return (tag.name in tags) or (tag.get('id') in ids) or (bool(set(tag.get('class', [])).intersection(classes)))
+
+        # Find all elements with specified tags
+        if tags or classes or ids:
+            text = '\n'.join(tag.get_text(separator='\n') for tag in soup.find_all(match_ids_and_classes))
         # Using html paragraphs
         elif text_settings['only_paragraphs']:
             paragraphs = soup.find_all('p')
@@ -99,7 +102,7 @@ class Crawler:
         # Fallback option: Extracting anything
         else:
             text = complete_text
-        
+        print(text)
         percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
         percentage = round(percentage*100)
         return complete_text, text, percentage
@@ -116,15 +119,19 @@ class Crawler:
         volume = None
 
         #Extracting date and title from the head of the html page
-        header_title = soup.find(title_settings['element'], attrs={title_settings['attrib']: title_settings['name']})
-        header_date = soup.find(date_settings['element'], attrs={date_settings['attrib']: date_settings['name']})
-        
-        if header_title is not None: # soup.find() returns None if not found
-            title = header_title.get('content')
-        if header_date is not None:
-            date = header_date.get('content')
-        else: 
-            #Fallback method: Extract first date-like string from website text
+        header_title = None
+        header_date = None
+        if title_settings['tag']and title_settings['attrib'] and title_settings['name']:
+            header_title = soup.find(title_settings['tag'], attrs={title_settings['attrib']: title_settings['name']})
+            if header_title is not None: # soup.find() returns None if not found
+                title = header_title.get('content')
+        if date_settings['tag']and date_settings['attrib'] and date_settings['name']:
+            header_date = soup.find(date_settings['tag'], attrs={date_settings['attrib']: date_settings['name']})
+            if header_date is not None:
+                date = header_date.get('content')
+
+        #Fallback method: Extract first date-like string from website text
+        if not header_date:
             if date_settings['use_fallback_method']:
                 date_match = re.search(self.date_pattern, complete_text)
                 if date_match:
