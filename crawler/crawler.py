@@ -22,7 +22,7 @@ class Crawler:
 
         self.base_url = self.get_base_url(starting_url)
         self.ignored_pages = re.compile(r'.*\.(png|pdf|jpg)')
-        self.local_links = re.compile(r'^[^\/]+$')
+        self.local_links = re.compile(r'^\/[^\/]+$')
 
         datetime_string = r'(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
         self.date_pattern = re.compile(datetime_string)
@@ -35,28 +35,31 @@ class Crawler:
         Iterates over queue, calling scraping and output functions
         """
         while self.queue: 
-            url, soup = self._scrape_single_page_from_queue()
+            status, url, soup = self._scrape_single_page_from_queue()
 
-            # Extracting data
-            complete_text, text, percentage = self._extract_text(soup)
-            if percentage != 0:
-                title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
-            else:
-                title = None; date = None; date_fallback_flag = None; volume = None
+            if status:
+                # Extracting data
+                complete_text, text, percentage = self._extract_text(soup)
+                if percentage != 0:
+                    title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
+                else:
+                    title = None; date = None; date_fallback_flag = None; volume = None
 
-            # Adding new links to queue
-            self._extract_links(soup)
-            self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
-            self.OutputHandler.write_output(url, text, title, date, volume, percentage)
-            self.OutputHandler.save_html(soup, url)
-            sleep(self.delay)
+                # Adding new links to queue
+                self._extract_links(soup)
+                self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
+                self.OutputHandler.write_output(url, text, title, date, volume, percentage)
+                self.OutputHandler.save_html(soup, url)
+                sleep(self.delay)
 
     def _scrape_single_page_from_queue(self): 
         url = self.queue.pop()
         self.visited.add(url)
 
         r = self.session.get(url)
-        return url, BeautifulSoup(r.content, 'html.parser')
+        status = 1 if r.status_code == 200 else 0
+        print('status', status, url)
+        return status, url, BeautifulSoup(r.content, 'html.parser')
 
     def _extract_links(self, soup): 
         raw_links = soup.find_all('a')
@@ -71,7 +74,8 @@ class Crawler:
                 # Checks if link is a weird local link
                 elif re.match(self.local_links, link):
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
-                        full_link = self.base_url + '/' + link #combine local link with base url to get a full one
+                        # Combine local link with base url to get a full one
+                        full_link = self.base_url + link if link[0] == '/' else self.base_url + '/' + link
                         if full_link not in self.visited: # Checks if already visited
                             self.queue.add(full_link)
 

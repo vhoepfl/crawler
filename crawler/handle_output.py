@@ -72,7 +72,8 @@ class TerminalOutput:
         
         if self.print_count == self.frequency:
             self.do_print = True
-        elif self.print_count == self.frequency and self.print is True: 
+            self.print_count = 0
+        else:
             self.do_print = False
         
         if self.do_print:
