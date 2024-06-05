@@ -44,6 +44,17 @@ Legend:
 
 
 Here the percent numbers refer only to those pages, where both date and title were found, since only those are likely to be articles
+
+## Timeouts/Verbindungsabbruch
+Falls die Verbindung abbricht (oder die Seite nicht lädt), wird das Laden der Seite nach 30 Sekunden abgebrochen und die Seite verworfen. Dies wird mit einer Warnmeldung im Terminal und im Log angezeigt: 
+```
+WARNING: Request timed out on https://terreetpeuple.com/plan-de-site.html?view=html&id=1
+```
+Falls die Seite keine gültige Antwort zurückgibt (d.h. der Statuscode ist nicht 200), wird dies ausgeben, im Log festgehalten und die Seite verworfen. 
+```
+Error when loading page https://terreetpeuple.com/affiche_liste.php?dpt=81: 404
+```
+
  
 ## Einstellungen
 Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt 

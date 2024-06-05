@@ -60,31 +60,33 @@ class Crawler:
         self.visited.add(url)
 
         try: 
-            r = self.session.get(url)
+            r = self.session.get(url, timeout=30)
             status = 1 if r.status_code == 200 else 0
+            if r.status_code != 200:
+                logging.info(f"Error when loading page {url}: {r.status_code}\n")
+                print(f"Error when loading page {url}: {r.status_code}\n")
             soup = BeautifulSoup(r.content, 'html.parser')
         except ConnectionError:
-            logging.warning(f"Connection error on {url}")
+            logging.warning(f"Connection error on {url}\n")
             print(f"WARNING: Connection error on {url}")
             status = 0
             soup = None
         except Timeout:
-            logging.warning(f"Request timed out on {url}")
+            logging.warning(f"Request timed out on {url}\n")
             print(f"WARNING: Request timed out on {url}")
             status = 0
             soup = None
         except RequestException:
-            logging.warning(f"Request exception on {url}")
+            logging.warning(f"Request exception on {url}\n")
             print(f"WARNING: Request exception on {url}")
             status = 0
             soup = None
         except Exception as e:
-            logging.warning(f"Unknown exception on {url}: {e}")
+            logging.warning(f"Unknown exception on {url}: {e}\n")
             print(f"WARNING: Unknown exception on {url}: {e}")
             status = 0
             soup = None 
 
-        print('status', status, url)
         return status, url, soup
 
     def _extract_links(self, soup): 
