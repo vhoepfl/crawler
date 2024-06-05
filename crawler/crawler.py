@@ -73,12 +73,17 @@ class Crawler:
             print(f"WARNING: Request timed out on {url}")
             status = 0
             soup = None
-        except RequestException as e:
-            logging.warning(f"Request exception on {url}: {e}")
-            print(f"WARNING: Request exception on {url}: {e}")
+        except RequestException:
+            logging.warning(f"Request exception on {url}")
+            print(f"WARNING: Request exception on {url}")
             status = 0
             soup = None
-            
+        except Exception as e:
+            logging.warning(f"Unknown exception on {url}: {e}")
+            print(f"WARNING: Unknown exception on {url}: {e}")
+            status = 0
+            soup = None 
+
         print('status', status, url)
         return status, url, soup
 
