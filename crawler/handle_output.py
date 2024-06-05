@@ -26,8 +26,12 @@ class TerminalOutput:
         """
         Writes a soup html object to a file, using the url as filename
         """
-        filename = re.sub(r'[^\w\-]+', '_', url)
+        
+        filename = str(self.total_count)
+
         with open(os.path.join(self.dir, 'html_files', filename), 'w', encoding='utf-8') as fw:
+            fw.write(url)
+            fw.write('\n')
             fw.write(str(soup))
         
 

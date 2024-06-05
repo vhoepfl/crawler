@@ -1,8 +1,11 @@
 import requests
+from requests.exceptions import ConnectionError, Timeout, RequestException
 from bs4 import BeautifulSoup
 import re
 import handle_output
 from time import sleep
+import logging
+
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
@@ -56,10 +59,28 @@ class Crawler:
         url = self.queue.pop()
         self.visited.add(url)
 
-        r = self.session.get(url)
-        status = 1 if r.status_code == 200 else 0
+        try: 
+            r = self.session.get(url)
+            status = 1 if r.status_code == 200 else 0
+            soup = BeautifulSoup(r.content, 'html.parser')
+        except ConnectionError:
+            logging.warning(f"Connection error on {url}")
+            print(f"WARNING: Connection error on {url}")
+            status = 0
+            soup = None
+        except Timeout:
+            logging.warning(f"Request timed out on {url}")
+            print(f"WARNING: Request timed out on {url}")
+            status = 0
+            soup = None
+        except RequestException as e:
+            logging.warning(f"Request exception on {url}: {e}")
+            print(f"WARNING: Request exception on {url}: {e}")
+            status = 0
+            soup = None
+            
         print('status', status, url)
-        return status, url, BeautifulSoup(r.content, 'html.parser')
+        return status, url, soup
 
     def _extract_links(self, soup): 
         raw_links = soup.find_all('a')
