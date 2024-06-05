@@ -110,7 +110,7 @@ class TerminalOutput:
         if self.settings['file']['word_count_limit'] != -1:
             if len(clean_text_words) < self.settings['file']['word_count_limit']:
                 if self.do_print and self.verbose:
-                    print(f'Checking page content - failed - lenght: {len(clean_text_lines)}')
+                    print(f'Checking page content - failed - lenght: {len(clean_text_words)}')
                 logging.info(f'Checking page content - failed - lenght: {len(clean_text_words)}\n')
                 return 0
         if self.settings['file']['mean_line_lenght_limit'] != -1:
