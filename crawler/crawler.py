@@ -13,8 +13,8 @@ class Crawler:
         #           'https': 'https://' +'192.240.46.123:80'}
         self.session = requests.Session()
         #self.session.proxies.update(proxies)
-
-        self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename='scraped_pages.txt')
+        text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
+        self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
         self.settings = settings
         self.queue = set([starting_url])
