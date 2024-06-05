@@ -46,6 +46,7 @@ Legend:
 Here the percent numbers refer only to those pages, where both date and title were found, since only those are likely to be articles
  
 ## Einstellungen
+Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt 
 ### ```general```
 - `delay: 0` 
 Beschreibt die Wartezeit zwischen zwei Aufrufen. Entspricht idealerweise dem Wert, welcher in der `robots.txt` angegeben ist. 
@@ -62,8 +63,9 @@ Optional gibt es die Möglichkeit, nach einem spezifischen Datumselement im HTML
 - `tag`
 - `attrib`
 - `name`
-**Beispiel:** 
-`<meta property="article:published_time" content="2024-04-02T16:09:32+00:00">`
+
+**Beispiel:** <br>
+`<meta property="article:published_time" content="2024-04-02T16:09:32+00:00">`<br>
 Das Datumselement wird über die folgenden 3 Werte identifiziert und `content` anschließend auf jeder Seite automatisch extrahiert: 
   ```
   tag: meta
@@ -71,8 +73,15 @@ Das Datumselement wird über die folgenden 3 Werte identifiziert und `content` a
   name: article:published_time
   ```
 
+Alternativ reicht auch nur das tag: <br>
+**Beispiel:** <br>
+`<date_published>05 juillet 2024</date_published>` <br>
+  ```
+  tag: date_published
+  ```
+
 #### `title`
-Die folgenden 3 Variablen identifizieren das Titelelement im HTML-Code. Der Crawler läuft auch, wenn hier keine Werte angegeben sind, allerdings wird dann kein Titel gefunden.  Siehe das Datumselement oberhalb für ein Beispiel der Funktionsweise. 
+Die folgenden 3 Variablen (oder auch nur tag) identifizieren das Titelelement im HTML-Code. Der Crawler läuft auch, wenn hier keine Werte angegeben sind, allerdings wird dann kein Titel gefunden.  Siehe das Datumselement oberhalb für ein Beispiel der Funktionsweise. 
 - `tag`
 - `attrib`
 - `name`

@@ -101,8 +101,16 @@ class Crawler:
             text = '\n'.join(tag.get_text(separator='\n') for tag in soup.find_all(match_ids_and_classes))
         # Using html paragraphs
         elif text_settings['only_paragraphs']:
-            paragraphs = soup.find_all('p')
-            text = '\n'.join([p.get_text() for p in paragraphs])
+            all_paragraphs = soup.find_all('p')
+
+            def is_innermost(p_tag):
+                return not p_tag.find('p')
+
+            # Filter to get only innermost <p> tags
+            innermost_paragraphs = [p for p in all_paragraphs if is_innermost(p)]
+
+            # Extract text from the innermost <p> tags
+            text = '\n'.join([p.get_text(separator='\n') for p in innermost_paragraphs])
         # Fallback option: Extracting anything
         else:
             text = complete_text
@@ -124,14 +132,26 @@ class Crawler:
         #Extracting date and title from the head of the html page
         header_title = None
         header_date = None
-        if title_settings['tag']and title_settings['attrib'] and title_settings['name']:
-            header_title = soup.find(title_settings['tag'], attrs={title_settings['attrib']: title_settings['name']})
-            if header_title is not None: # soup.find() returns None if not found
-                title = header_title.get('content')
-        if date_settings['tag']and date_settings['attrib'] and date_settings['name']:
-            header_date = soup.find(date_settings['tag'], attrs={date_settings['attrib']: date_settings['name']})
-            if header_date is not None:
-                date = header_date.get('content')
+        print(title_settings)
+        if title_settings['tag']:
+            if title_settings['attrib'] and title_settings['name']:
+                header_title = soup.find(title_settings['tag'], attrs={title_settings['attrib']: title_settings['name']})
+                if header_title:
+                    title = header_title.get('content')
+            else:
+                header_title = soup.find(title_settings['tag'])
+                if header_title: # soup.find() returns None if not found
+                    title = header_title.get_text(separator=' ')
+
+        if date_settings['tag']:
+            if date_settings['attrib'] and date_settings['name']:
+                header_date = soup.find(date_settings['tag'], attrs={date_settings['attrib']: date_settings['name']})
+                if header_date:
+                    title = header_title.get('content')
+            else:
+                header_date = soup.find(date_settings['tag'])
+                if header_date:
+                    date = header_date.get_text(separator=' ')
 
         #Fallback method: Extract first date-like string from website text
         if not header_date:

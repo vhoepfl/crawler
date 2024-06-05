@@ -8,16 +8,18 @@ metadata:
     tag: 
     attrib: 
     name: 
-    # Alle 3 Elemente müssen angegeben werden! 
+    # Entweder nur tag angeben, oder alle 3 Elemente 
     # Beispiel: 
     # hmtl: <meta property="article:published_time" content="2024-04-02T16:09:32+00:00">
     # tag:meta, attrib:property, name:article:published_time -> content gets extracted
+    # <title>Les jeunes lycéens doivent fermer leur gueule | Alliance Alcestueuse</title>
+    # tag:title
 
   title: 
     tag: 
     attrib: 
     name: 
-    # Alle 3 Elemente müssen spezifiziert werden! Siehe date für Details
+    # Siehe date für Details
 
   volume: 
     extract_volume: True # Jedes volume aus Titel (nicht Text) extrahiert
