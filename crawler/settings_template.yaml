@@ -12,8 +12,8 @@ metadata:
     # Beispiel: 
     # hmtl: <meta property="article:published_time" content="2024-04-02T16:09:32+00:00">
     # tag:meta, attrib:property, name:article:published_time -> content gets extracted
-    # <title>Les jeunes lycéens doivent fermer leur gueule | Alliance Alcestueuse</title>
-    # tag:title
+    # <published_date>05 juillet 2024</published_date>
+    # tag:published_date
 
   title: 
     tag: 
