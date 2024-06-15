@@ -21,6 +21,13 @@ metadata:
     name: 
     # Siehe date für Details
 
+  author: 
+    tag: 
+    attrib: 
+    name: 
+    # Siehe date für Details
+
+
   volume: 
     extract_volume: True # Jedes volume aus Titel (nicht Text) extrahiert
 

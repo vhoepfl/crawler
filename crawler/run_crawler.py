@@ -5,7 +5,6 @@ import os
 
 
 
-
 dir = handle_settings.request_settings()
 settings = handle_settings.read_settings_file(dir)
 # save dir path in settings

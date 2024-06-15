@@ -9,10 +9,10 @@ import logging
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
-        #proxies = {'http': 'http://' +'192.240.46.123:80',
-        #           'https': 'https://' +'192.240.46.123:80'}
+        proxies = {'http': 'socks5h://10.64.0.1:1080', 
+                   'https': 'socks5h://10.64.0.1:1080'}
         self.session = requests.Session()
-        #self.session.proxies.update(proxies)
+        self.session.proxies.update(proxies)
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
@@ -44,14 +44,14 @@ class Crawler:
                 # Extracting data
                 complete_text, text, percentage = self._extract_text(soup)
                 if percentage != 0:
-                    title, date, date_fallback_flag, volume = self._extract_metadata(soup, complete_text)
+                    title, date, date_fallback_flag, author, volume = self._extract_metadata(soup, complete_text)
                 else:
-                    title = None; date = None; date_fallback_flag = None; volume = None
+                    title = None; date = None; date_fallback_flag = None; author = None; volume = None
 
                 # Adding new links to queue
                 self._extract_links(soup)
-                self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, volume)
-                self.OutputHandler.write_output(url, text, title, date, volume, percentage)
+                self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, author, date_fallback_flag, volume)
+                self.OutputHandler.write_output(url, text, title, date, author, volume, percentage)
                 self.OutputHandler.save_html(soup, url)
                 sleep(self.delay)
 
@@ -150,36 +150,61 @@ class Crawler:
     def _extract_metadata(self, soup, complete_text):
         date_settings = self.settings['metadata']['date']
         title_settings = self.settings['metadata']['title']
+        author_settings = self.settings['metadata']['author']
         volume_settings = self.settings['metadata']['volume']
-
+        print(author_settings)
         date_fallback = False
         title = None
         date = None
+        author = None
         volume = None
 
         #Extracting date and title from the head of the html page
         header_title = None
         header_date = None
-        print(title_settings)
+        header_author = None
+
         if title_settings['tag']:
             if title_settings['attrib'] and title_settings['name']:
                 header_title = soup.find(title_settings['tag'], attrs={title_settings['attrib']: title_settings['name']})
                 if header_title:
                     title = header_title.get('content')
+                    if title is None: 
+                        title = header_title.get_text()
             else:
                 header_title = soup.find(title_settings['tag'])
                 if header_title: # soup.find() returns None if not found
                     title = header_title.get_text(separator=' ')
+                    if title is None: 
+                        title = header_title.get_text()
 
         if date_settings['tag']:
             if date_settings['attrib'] and date_settings['name']:
                 header_date = soup.find(date_settings['tag'], attrs={date_settings['attrib']: date_settings['name']})
                 if header_date:
-                    title = header_title.get('content')
+                    date = header_date.get('content')
+                    if date is None: 
+                        date = header_date.get_text()
             else:
                 header_date = soup.find(date_settings['tag'])
                 if header_date:
                     date = header_date.get_text(separator=' ')
+                    if date is None: 
+                        date = header_date.get_text()
+        
+        if author_settings['tag']:
+            if author_settings['attrib'] and author_settings['name']:
+                header_author = soup.find(author_settings['tag'], attrs={author_settings['attrib']: author_settings['name']})
+                if header_author:
+                    author = header_author.get('content')
+                    if author is None: # Has no content variable, e.g. <span class="post_author_name">Les Identitaires</span>
+                        author = header_author.get_text()
+            else:
+                header_author = soup.find(author_settings['tag'])
+                if header_author:
+                    author = header_author.get_text(separator=' ')    
+                    if author is None: # Has no content variable, e.g. <span class="post_author_name">Les Identitaires</span>
+                        author = header_author.get_text()
 
         #Fallback method: Extract first date-like string from website text
         if not header_date:
@@ -195,7 +220,8 @@ class Crawler:
             if vol_match:
                 volume = vol_match.group(1)
 
-        return title, date, date_fallback, volume
+        print(author)
+        return title, date, date_fallback, author, volume
 
     def get_base_url(self, url):
         """

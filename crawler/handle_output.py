@@ -35,7 +35,7 @@ class TerminalOutput:
             fw.write(str(soup))
         
 
-    def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, volume):
+    def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, author, volume):
         """
         Prints info for the scraping process
         
@@ -72,7 +72,7 @@ class TerminalOutput:
         
         text =  f"Step {self.total_count}: {url}\n"
         text += f"{percentage} % of content of current page extracted\n"
-        text += f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}"
+        text += f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {author if author else '-'}, {title if title else '-'}"
         
         if self.print_count == self.frequency:
             self.do_print = True
@@ -125,7 +125,7 @@ class TerminalOutput:
         return 1
 
 
-    def write_output(self, url, scraped_text, title, date, volume, percentage): 
+    def write_output(self, url, scraped_text, title, date, author, volume, percentage): 
         """
         Appends the output to a file.
         Differents pages are put into a block of <begin-of-url> ...text <end-of-url>
@@ -139,6 +139,8 @@ class TerminalOutput:
                 fw.write(title if title else '')
                 fw.write('\n<separate-parts>\n')
                 fw.write(date if date else '')
+                fw.write('\n<separate-parts>\n')
+                fw.write(author if author else '')
                 fw.write('\n<separate-parts>\n')
                 fw.write(scraped_text)
                 fw.write('\n<end-of-url>\n')
