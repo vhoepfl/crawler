@@ -89,7 +89,7 @@ class TerminalOutput:
         logging.info(visual)
         logging.info(f"Step {self.total_count}: {url}")
         logging.info(f"{percentage} % of content of current page extracted")
-        logging.info(f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {title if title else '-'}")
+        logging.info(f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {author if author else '-'}, {title if title else '-'}")
 
 
     def get_quality_rating(self, percentage, scraped_text:str):

@@ -9,10 +9,17 @@ import logging
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
-        proxies = {'http': 'socks5h://10.64.0.1:1080', 
-                   'https': 'socks5h://10.64.0.1:1080'}
-        self.session = requests.Session()
-        self.session.proxies.update(proxies)
+        self.playwright_mode = settings['general']['playwright']
+        if self.playwright_mode:
+            from playwright.sync_api import sync_playwright
+            self.p = sync_playwright().start()
+            browser = self.p.chromium.launch(headless=False, proxy={'server': 'socks5://10.64.0.1:1080'})
+            self.page = browser.new_page()
+        else: 
+            proxies = {'http': 'socks5h://10.64.0.1:1080', 
+                    'https': 'socks5h://10.64.0.1:1080'}
+            self.session = requests.Session()
+            self.session.proxies.update(proxies)
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
@@ -25,7 +32,7 @@ class Crawler:
 
         self.base_url = self.get_base_url(starting_url)
         self.ignored_pages = re.compile(r'.*\.(png|pdf|jpg)')
-        self.local_links = re.compile(r'^\/[^\/]+$')
+        self.match_absolute_url = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
 
         datetime_string = r'(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
         self.date_pattern = re.compile(datetime_string)
@@ -44,28 +51,58 @@ class Crawler:
                 # Extracting data
                 complete_text, text, percentage = self._extract_text(soup)
                 if percentage != 0:
+                    
                     title, date, date_fallback_flag, author, volume = self._extract_metadata(soup, complete_text)
                 else:
                     title = None; date = None; date_fallback_flag = None; author = None; volume = None
 
                 # Adding new links to queue
                 self._extract_links(soup)
-                self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, author, date_fallback_flag, volume)
+                self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, author, volume)
                 self.OutputHandler.write_output(url, text, title, date, author, volume, percentage)
                 self.OutputHandler.save_html(soup, url)
-                sleep(self.delay)
+
+        if self.playwright_mode: 
+            self.p.stop()
+                
 
     def _scrape_single_page_from_queue(self): 
         url = self.queue.pop()
         self.visited.add(url)
 
         try: 
-            r = self.session.get(url, timeout=30)
-            status = 1 if r.status_code == 200 else 0
-            if r.status_code != 200:
-                logging.info(f"Error when loading page {url}: {r.status_code}\n")
-                print(f"Error when loading page {url}: {r.status_code}\n")
-            soup = BeautifulSoup(r.content, 'html.parser')
+            if self.playwright_mode: 
+                def scroll_down_until_no_more_pages(page):
+                    # Get the initial height of the page
+                    last_height = page.evaluate("document.body.scrollHeight")
+                    while True:
+                        # Scroll down to the bottom of the page
+                        page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+                        
+                        # Wait for some time to let new content load
+                        page.wait_for_timeout(self.delay)
+                        
+                        # Calculate new scroll height and compare with last scroll height
+                        new_height = page.evaluate("document.body.scrollHeight")
+                        if new_height == last_height:
+                            break
+                        last_height = new_height
+
+                self.page.goto(url)
+                scroll_down_until_no_more_pages(self.page) #Makes sure the entire page was loaded
+                html_content = self.page.content()
+                soup = BeautifulSoup(html_content, 'html.parser')
+                status = 1 # Placeholder, webpage status in playwright not directly returned
+                
+                     
+            else: 
+                r = self.session.get(url, timeout=30)
+                status = 1 if r.status_code == 200 else 0
+                if r.status_code != 200:
+                    logging.info(f"Error when loading page {url}: {r.status_code}\n")
+                    print(f"Error when loading page {url}: {r.status_code}\n")
+                soup = BeautifulSoup(r.content, 'html.parser')
+
         except ConnectionError:
             logging.warning(f"Connection error on {url}\n")
             print(f"WARNING: Connection error on {url}")
@@ -94,39 +131,48 @@ class Crawler:
         for raw_link in raw_links: 
             link = raw_link.get('href') 
             if link is not None: 
-                # Checks if link is relative / on same site
+                # Checks if link is on same site
                 if re.match(self.base_url, link): 
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
                         if link not in self.visited: # Checks if already visited
                             self.queue.add(link)
-                # Checks if link is a weird local link
-                elif re.match(self.local_links, link):
+                # If link not on same site: outside -> ignore, relative link -> combine with base url
+                if not re.match(self.match_absolute_url, link): # If absolute and not on same website: ignored
                     if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
-                        # Combine local link with base url to get a full one
-                        full_link = self.base_url + link if link[0] == '/' else self.base_url + '/' + link
+                        full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
                         if full_link not in self.visited: # Checks if already visited
                             self.queue.add(full_link)
 
     def _extract_text(self, soup):
+        def text_cleanup(text): 
+            """
+            soup output should have a --separate-- separator between individual tags.
+            This tag will be evaluated to check if additional spaces are needed
+            """
+            text = re.sub(r'(?<=\s)--separate--', '', text)
+            text = re.sub(r'--separate--', ' ', text)
+            text = re.sub(r'^\n+|\n+$', '', text) # Remove empty lines at the start and end
+            text = re.sub(r'(?<=\n)\s*\n', '\n', text)
+            return text
+        
         text_settings = self.settings['text_extraction']
         #Entire website text
-        complete_text = soup.get_text(separator='\n')
+        complete_text = text_cleanup(soup.get_text(separator='--separate--'))
         #Using tags defined in settings
-        tags = [] if text_settings['specific_tags']['tag'] is None else \
-            [t.strip() for t in text_settings['specific_tags']['tag'].split(',')]
-        classes = [] if text_settings['specific_tags']['class'] is None else \
-            [c.strip() for c in text_settings['specific_tags']['class'].split(',')]
-        ids = [] if text_settings['specific_tags']['id'] is None else \
-            [i.strip() for i in text_settings['specific_tags']['id'].split(',')]
-        
+        tuples = text_settings['specific_tags']
 
         # Custom filter function
         def match_ids_and_classes(tag):
-            return (tag.name in tags) or (tag.get('id') in ids) or (bool(set(tag.get('class', [])).intersection(classes)))
+            for item in tuples: 
+                if (((tag.name == item['tag']) if item['tag'] else True) and 
+                    ((tag.get('id') == item['id']) if item['id'] else True) and 
+                    ((item['class'] in set(tag.get('class', []))) if item['class'] else True)): 
+                    return True
+            return False
 
         # Find all elements with specified tags
-        if tags or classes or ids:
-            text = '\n'.join(tag.get_text(separator='\n') for tag in soup.find_all(match_ids_and_classes))
+        if tuples[0]['tag'] or tuples[0]['id'] or tuples[0]['class']: #If first tuple not empty
+            text = text_cleanup('--separate--'.join(tag.get_text(separator='--separate--') for tag in soup.find_all(match_ids_and_classes)))
         # Using html paragraphs
         elif text_settings['only_paragraphs']:
             all_paragraphs = soup.find_all('p')
@@ -138,12 +184,13 @@ class Crawler:
             innermost_paragraphs = [p for p in all_paragraphs if is_innermost(p)]
 
             # Extract text from the innermost <p> tags
-            text = '\n'.join([p.get_text(separator='\n') for p in innermost_paragraphs])
+            text = text_cleanup('--separate--'.join([p.get_text(separator='--separate--') for p in innermost_paragraphs]))
         # Fallback option: Extracting anything
         else:
             text = complete_text
         percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
         percentage = round(percentage*100)
+
         return complete_text, text, percentage
 
 
@@ -152,7 +199,6 @@ class Crawler:
         title_settings = self.settings['metadata']['title']
         author_settings = self.settings['metadata']['author']
         volume_settings = self.settings['metadata']['volume']
-        print(author_settings)
         date_fallback = False
         title = None
         date = None
@@ -175,8 +221,6 @@ class Crawler:
                 header_title = soup.find(title_settings['tag'])
                 if header_title: # soup.find() returns None if not found
                     title = header_title.get_text(separator=' ')
-                    if title is None: 
-                        title = header_title.get_text()
 
         if date_settings['tag']:
             if date_settings['attrib'] and date_settings['name']:
@@ -189,8 +233,6 @@ class Crawler:
                 header_date = soup.find(date_settings['tag'])
                 if header_date:
                     date = header_date.get_text(separator=' ')
-                    if date is None: 
-                        date = header_date.get_text()
         
         if author_settings['tag']:
             if author_settings['attrib'] and author_settings['name']:
@@ -203,8 +245,6 @@ class Crawler:
                 header_author = soup.find(author_settings['tag'])
                 if header_author:
                     author = header_author.get_text(separator=' ')    
-                    if author is None: # Has no content variable, e.g. <span class="post_author_name">Les Identitaires</span>
-                        author = header_author.get_text()
 
         #Fallback method: Extract first date-like string from website text
         if not header_date:
@@ -220,7 +260,6 @@ class Crawler:
             if vol_match:
                 volume = vol_match.group(1)
 
-        print(author)
         return title, date, date_fallback, author, volume
 
     def get_base_url(self, url):

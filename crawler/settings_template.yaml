@@ -1,5 +1,6 @@
 general: 
-  delay: 0 # Wartezeit zwischen Aufrufen
+  delay: 1000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
+  playwright: False
 
 
 metadata: 
@@ -34,11 +35,16 @@ metadata:
 
 text_extraction: 
   only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
-  specific_tags: # HTML-Elemente identifiziert über: tag, class oder id. 
-    tag: 
-    class: 
-    id: 
-    # Mehrere Elemente können kombiniert werden, nach jedem wird unabhängig von den anderen gesucht
+  specific_tags: # HTML-Elemente identifiziert über: tag, class oder id - nach jedem tag-class-id-Paar wird als fixe Kombination gesucht
+    - tag: 
+      class: 
+      id: 
+  # Weitere Paare können angegeben werden mit 
+  # - tag: 
+  #   class ..
+
+    
+  
 
 
 output: 
