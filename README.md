@@ -10,12 +10,22 @@ Die meisten Internetseiten haben unter `seitenname.xyz/robots.txt` genauere Info
 Aktuell besitzt der Crawler nicht die Funktion, auf diese Datei zuzugreifen und die Einschränkungen automatisch zu berücksichtigen, dies könnte allerdings relativ problemlos umgesetzt werden, falls hier Bedarf besteht. 
 
 An sich kann die `robots.txt` problemlos ignoriert werden, dies birgt allerdings das Risiko, dass der Zugriff auf die Seite blockiert wird. 
-Falls dies passiert, könnte es helfen, die WLAN-Verbindung aus- und wieder einzuschalten, da dann (zumindest in eduroam) vermutlich eine neue IP-Adresse zugewiesen wird, sowie beim nächsten Versuch in den Einstellungen den `delay` zwischen Zugriffen hochzusetzen. 
+Falls dies passiert, könnte es helfen, die WLAN-Verbindung aus- und wieder einzuschalten, da dann (zumindest in eduroam) vermutlich eine neue IP-Adresse zugewiesen wird, sowie beim nächsten Versuch in den Einstellungen `playwright` auf `True` und `delay` auf einen Wert > 0 zu setzen. Siehe den [folgenden Teil](#dynamisch-generierte-websites) für mehr Details. 
+
+## Dynamisch generierte Websites
+Aktuell unterstützt der Code zwei verschiedene Möglichkeiten, auf die Seiten zuzugreifen: 
+- **requests**<br>
+Basismethode, um auf statische Websites zuzugreifen. Schneller als playwright sowie mit genaueren Fehlermeldungen - führt allerdings nur eine einzelne GET-Anfrage auf die Website aus und bekommt damit nur jenen Websiteninhalt zurück, welcher sofort zu Beginn geladen wird. 
+- **playwright**<br>
+Playwright öffnet ein echtes Browserfenster, um auf die Website zuzugreifen, und scrollt dann in mehreren Schritten bis nach unten. `delay`ist dabei die Wartezeit, während der die Seite laden kann, und nach deren Ablauf überprüft wird, ob noch neuer Inhalt lädt oder die Seite vollständig ist. 
 
 
 ## Setup
 Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
 `pip install pyyaml requests bs4`
+Playwright kann mit `pip install playwright` installiert werden. <br> 
+Anschließend können dan verschiedene Browser heruntergeladen werden mit `playwright install`<br>
+Details auf der [playwright-Website](https://playwright.dev/python/docs/intro). 
 
 Darüber hinaus müssen die Dateien aus diesem github repository heruntergeladen werden. Dies geht entweder per Download über den Browser, oder idealerweise - wenn `git` installiert ist - indem im Terminal `git clone https://github.com/vhoepfl/crawler.git` ausgeführt wird. 
 
@@ -46,21 +56,24 @@ Legend:
 Here the percent numbers refer only to those pages, where both date and title were found, since only those are likely to be articles
 
 ## Timeouts/Verbindungsabbruch
-Falls die Verbindung abbricht (oder die Seite nicht lädt), wird das Laden der Seite nach 30 Sekunden abgebrochen und die Seite verworfen. Dies wird mit einer Warnmeldung im Terminal und im Log angezeigt: 
+Falls die Verbindung abbricht (oder die Seite nicht lädt), wird das Laden der Seite nach einiger Zeit abgebrochen und die Seite verworfen. Dies wird mit einer Warnmeldung im Terminal und im Log angezeigt: 
 ```
 WARNING: Request timed out on https://terreetpeuple.com/plan-de-site.html?view=html&id=1
 ```
-Falls die Seite keine gültige Antwort zurückgibt (d.h. der Statuscode ist nicht 200), wird dies ausgeben, im Log festgehalten und die Seite verworfen. 
+Falls die Seite keine gültige Antwort zurückgibt (d.h. der Statuscode ist nicht 200), wird bei requests der Fehlercode ausgeben, im Log festgehalten und die Seite verworfen. 
 ```
 Error when loading page https://terreetpeuple.com/affiche_liste.php?dpt=81: 404
 ```
-
+Bei playwright erfolgt aus technischen Gründen keine spezielle Fehlerbehandlung, die Seite wird einfach als leere Seite geladen. 
  
 ## Einstellungen
-Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt 
+Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt. Dort können zu Beginn die Einstellungen für den Scraping-Prozess festgelegt werden. <br>
+Im Folgenden werden die verschiedenen Optionen genauer erklärt: 
 ### ```general```
+- `playwright: False`
+Falls `True`, wird ein playwright-Browser anstatt requests verwendet. Dies erhöht Websiteladezeiten signifikant, ist aber notwendig, um dynamisch generierte Websites korrekt zu scrapen, da ansonsten nur ein Bruchteil der Seite geladen ist und entsprechend gescraped wird. 
 - `delay: 0` 
-Beschreibt die Wartezeit zwischen zwei Aufrufen. Entspricht idealerweise dem Wert, welcher in der `robots.txt` angegeben ist. 
+Bei Verwendung von Playwright, ansonsten ignoriert: Wartezeit (in ms) zwischen zwei Aufrufen. Idealerweise lang genug, um die Seite vollständig zu laden, aber dabei so kurz wie möglich. 
 
 ### ```metadata```
 #### ```date```
@@ -92,16 +105,16 @@ Alternativ reicht auch nur das tag: <br>
   ```
 
 #### `title`
-Die folgenden 3 Variablen (oder auch nur tag) identifizieren das Titelelement im HTML-Code. Der Crawler läuft auch, wenn hier keine Werte angegeben sind, allerdings wird dann kein Titel gefunden.  Siehe das Datumselement oberhalb für ein Beispiel der Funktionsweise. 
-- `tag`
-- `attrib`
-- `name`
+Die folgenden 3 Variablen (oder auch nur tag) identifizieren das Titelelement im HTML-Code. Der Crawler läuft auch, wenn hier keine Werte angegeben sind, allerdings wird dann kein Titel gefunden.  Siehe das Datumselement `date` oberhalb für ein Beispiel der Funktionsweise. 
 
+
+#### `author`
+Siehe `date` für die Funktionsweise 
 
 #### `volume`
 
-Da scheinbar nur selten bis nie ein eigenes HTML-Element für das volume existiert, wird auf eine ähnliche Methode wie bei der *fallback method* für das Datum zurückgegriffen: Jede volume-ähnliche Nummerierung (z.B. `N. <Zahl>`, `Vol. <Zahl>`, `Éd. <Zahl>` - der Punkt ist dabei optional ) wird als volume interpretiert und gespeichert. 
-Das Format aus einer Zahl und einem Punkt, z.B. `1.`, wird nicht als volume erkannt, da hier die Fehleranfälligkeit vermutlich hoch ist. 
+Da scheinbar nur selten bis nie ein eigenes HTML-Element für das volume existiert, wird auf eine ähnliche Methode wie bei der *fallback method* für das Datum zurückgegriffen: Jede volume-ähnliche Nummerierung (z.B. `N. <Zahl>`, `Vol. <Zahl>`, `Éd. <Zahl>` - der Punkt ist dabei optional ) wird als volume interpretiert und gespeichert. <br>
+Das Format aus einer Zahl und einem Punkt, z.B. `1.`, wird aktuell nicht als volume erkannt, da hier die Fehleranfälligkeit vermutlich zu hoch ist. 
 
 - `extract_volume: True`
     Falls auf `True` gesetzt, wird ein volume auf die oben beschriebene Weise extrahiert. 
@@ -114,13 +127,64 @@ Text nur extrahiert aus `<p>`-tags. Diese Option sollte (je nach Aufbau der Webs
 Mittels dieser Option können spezifische Elemente oder Attribute festgelegt werden, aus welchen der Text extrahiert wird - der Rest des Websitentexts wird dann ignoriert. (überschreibt `only_paragraphs`)
     ```
     specific_tags: 
-      - tag
-      - class: 
-      - id: 
+      - tag:
+        class: 
+        id: 
     ```
-    Die einzelnen Werte sind hier (anders als bei *date* und *title*) unabhängig voneinander. 
-    Es is hier also möglich, nicht alle der Variablen zu belegen und beispielweise nur ein `tag` oder eine `class` anzugeben. Falls mehrere Werte angegeben werden, wird jedes HTML-Element extrahiert, für welches ein oder mehrere der spezifizierten Kriterien zutreffen. 
-    Darüber hinaus können für jeden einzelnen Typ mehrere Werte angegeben werden, indem diese durch Kommata getrennt werden: `id: article-iliade, articleiliade`
+    
+    **Mehrere Formate/Strukturen gleichzeitig suchen**<br>
+    Technisch gesehen ist `tag:_, class:_, id:_`ein dictionary, welches als einzelnes Element einer Liste `- tag: ...` abgespeichert wird. Es können also mehrere Blöcke aus tag, class, id gleichzeitig extrahiert werden, indem jeweils ein Bindestrich davor platziert wird: 
+    ```
+    specific_tags: 
+      - tag:
+        class: 
+        id: 
+      - tag:
+        class: 
+        id: 
+      - ...
+    ```
+    Nach jeder Kombination (tag, class, id) wird dabei unabhängig voneinander gesucht. 
+    Beispielsweise würde 
+    ```
+    specific_tags: 
+      - tag: article
+        class: 
+        id: 
+      - tag: comment
+        class: 
+        id: 
+      - ...
+    ```
+    alle Elemente finden, die sich in einem tag `<article...` oder einem tag  `<comment...` befinden. <br>
+    Abgesehen davon, dass damit mehrere verschiedene Websitelemente extrahiert werden können, kann dies auch eingesetzt werden, falls mehrere Formate wie `article-iliade`und `articleiliade` parallel verwendet werden.<br><br>
+    **Es ist nicht notwendig, für alle drei Elemente einen Wert anzugeben:**<br>
+    Die drei Elemente werden kombiniert, d.h. es wird jeder Webseitenteil extrahiert, der mit jedem gegebenen Kriterium übereinstimmt. 
+    ```
+    <article id="post-52228" class="post_item_single post_type_post post_format_ post-52228 post type-post status-publish format-standard has-post-thumbnail hentry category-communiques">
+    ``` 
+    wird also von allen der folgenden Kriterien erkannt: 
+    ```
+    specific_tags: 
+      - tag: article
+        class: post_item_single # Oder auch post_type_post, post_format_ post-52228, ...
+        id: 
+    ```
+    ```
+    specific_tags: 
+      - tag: article
+        class: 
+        id: 
+    ```
+    ```
+    specific_tags: 
+      - tag: 
+        class: post_item_single # Oder auch post_type_post, post_format_ post-52228, ...
+        id: 
+    ```
+    *Anmerkung:* Wenn bei `class="..."` mehrere Stichwörter stehen, darf aktuell nur eines der Stichwörter als Klasse angegeben werden. Falls mehrere unabhängig voneinander gewählt werden sollen, bitte einen weiteren Block anhängen und dort angeben. <br>
+    Für das spezifische Szenario, dass zwei oder mehrere Klassen *gleichzeitig* vorhanden sein sollen, könnte ich den Code anpassen, aktuell ist dies aber nicht möglich. 
+     `id: article-iliade, articleiliade`
     **Details zu den Variablentypen:**
     `tag`, `class`und `id` unterscheiden sich an dieser Stelle teilweise von den Variablen für *date* und *title*. 
     - `tag` ist äquivalent
@@ -135,8 +199,7 @@ Mittels dieser Option können spezifische Elemente oder Attribute festgelegt wer
       ```
       Dabei wäre - wie oberhalb beschrieben - einer der Werte (z.B. `tag:article`) ausreichend, um das entsprechende HMTL-Element zu matchen
 
-  **Anmerkung:**
-  Soweit ich gesehen habe, kann es sein, dass innerhalb einer Website kein kohärentes System für die Strukturierung der Seite existiert - beispielsweise indem mehrere unterschiedliche Werte für `id` wie *article-iliade* und *articleiliade* parallel verwendet werden. In diesem Fall wäre es wichtig, alle Optionen anzugeben, da sonst der Text einiger Seiten relativ spurlos ignoriert wird. Die einzige Möglichkeit, dies festzustellen, ist, manuell die logging-Datei durchzugehen und für Dateien mit auffällig niedrigen *percentage*-Werten zu kontrollieren, ob hier ein anderer Wert verwendet wird. 
+  **Es kann sein, dass innerhalb einer Website kein kohärentes System für die Strukturierung der Seite existiert**  - beispielsweise indem mehrere unterschiedliche Werte für `id` wie *article-iliade* und *articleiliade* parallel verwendet werden. In diesem Fall wäre es wichtig, alle Optionen anzugeben, da sonst der Text einiger Seiten relativ spurlos ignoriert wird. Die einzige Möglichkeit, dies festzustellen, ist zum einen, mehrere Seiten aus verschiedenen Kategorien zu durchsuchen und alle relevanten Formate zu notieren, und zum anderen manuell die logging-Datei durchzugehen und für Dateien mit auffällig niedrigen *percentage*-Werten zu kontrollieren, ob hier ein anderes Format verwendet wird. 
 
       
 
@@ -149,10 +212,10 @@ Zahl *n* von 1 bis unendlich: Einmal pro *n* gecrawlten Seiten werden Infos ausg
 #### `file`
 Filteroptionen für die Ausgabe des finalen Texts in eine Datei - können jeweils deaktiviert werden, indem der Wert auf *-1* gesetzt wird. 
 - `percentage_limit` 
-Zahl von 1 bis 100 - jede Seite, auf der mit den gewählten Einstellungen ein niedrigerer Prozentsatz des Gesamttext extrahiert wurde, wird ignoriert
+Zahl von 1 bis 100 - jede Seite, auf der mit den gewählten Einstellungen ein niedrigerer Prozentsatz des Gesamttext extrahiert wurde, wird ignoriert. <br>
 *Anmerkung:* Ich bin mir unsicher, in welchen Fällen diese Begrenzung überhaupt Sinn macht, da an sich die Extraktion von weniger Text ja höhere Qualität dieses extrahierten Texts nahelegt. 
 - `word_count_limit`
 Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert. 
 - `mean_line_lenght_limit`
- Durchschnittliche Zahl an Wörtern pro (Text-)Zeile über die gesamte Seite - jede Seite mit kürzeren Zeilen wird ignoriert. 
+ Durchschnittliche Zahl an Wörtern pro (Text-)Zeile über die gesamte Seite - jede Seite mit kürzeren Zeilen wird ignoriert. <br>
  *Anmerkung:* Diese Metrik hilft zwar, Seiten mit vielen Links / kurzen Zeilen mit wenig brauchbarem Text auszusortieren, allerdings wird es vermutlich stark von der spezifischen Seite abhängen, ob diese Metrik Sinn macht und welcher Wert jeweils gut funktioniert. 
