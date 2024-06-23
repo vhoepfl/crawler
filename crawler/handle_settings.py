@@ -16,7 +16,6 @@ def request_settings():
         #Checking path
         if not os.path.exists(dir): 
             os.makedirs(dir)
-            os.makedirs(os.path.join(dir, 'html_files'))
             print(f'All data of this run saved under {os.path.abspath(dir)}\n')
             break
         else: 

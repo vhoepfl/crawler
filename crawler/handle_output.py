@@ -27,11 +27,11 @@ class TerminalOutput:
         Writes a soup html object to a file, using the url as filename
         """
         
-        filename = str(self.total_count)
+        filename = 'all_pages_html.txt'
 
-        with open(os.path.join(self.dir, 'html_files', filename), 'w', encoding='utf-8') as fw:
-            fw.write(url)
-            fw.write('\n')
+        with open(os.path.join(self.dir, filename), 'a', encoding='utf-8') as fw:
+            fw.write('\n--- Separator ---\n')
+            fw.write(url + '\n')
             fw.write(str(soup))
         
 
