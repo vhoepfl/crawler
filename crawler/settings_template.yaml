@@ -1,6 +1,7 @@
 general: 
-  delay: 1000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
   playwright: False
+  delay: 1000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
+  
 
 
 metadata: 

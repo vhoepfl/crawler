@@ -163,7 +163,7 @@ class Crawler:
 
         # Custom filter function
         def match_ids_and_classes(tag):
-            for item in tuples: 
+            for item in tuples:
                 if (((tag.name == item['tag']) if item['tag'] else True) and 
                     ((tag.get('id') == item['id']) if item['id'] else True) and 
                     ((item['class'] in set(tag.get('class', []))) if item['class'] else True)): 
@@ -233,7 +233,15 @@ class Crawler:
                 header_date = soup.find(date_settings['tag'])
                 if header_date:
                     date = header_date.get_text(separator=' ')
-        
+
+        #Fallback method: Extract first date-like string from website text
+        if not header_date:
+            if date_settings['use_fallback_method']:
+                date_match = re.search(self.date_pattern, complete_text)
+                if date_match:
+                    date = date_match.group()
+                    date_fallback = True # Flag used in output
+
         if author_settings['tag']:
             if author_settings['attrib'] and author_settings['name']:
                 header_author = soup.find(author_settings['tag'], attrs={author_settings['attrib']: author_settings['name']})
@@ -244,15 +252,7 @@ class Crawler:
             else:
                 header_author = soup.find(author_settings['tag'])
                 if header_author:
-                    author = header_author.get_text(separator=' ')    
-
-        #Fallback method: Extract first date-like string from website text
-        if not header_date:
-            if date_settings['use_fallback_method']:
-                date_match = re.search(self.date_pattern, complete_text)
-                if date_match:
-                    date = date_match.group()
-                    date_fallback = True # Flag used in output
+                    author = header_author.get_text(separator=' ')        
 
         # Automatical extraction of volume numbers from title
         if volume_settings['extract_volume'] and title is not None:
