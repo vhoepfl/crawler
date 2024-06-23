@@ -24,7 +24,7 @@ Playwright öffnet ein echtes Browserfenster, um auf die Website zuzugreifen, un
 Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
 `pip install pyyaml requests bs4`
 Playwright kann mit `pip install playwright` installiert werden. <br> 
-Anschließend können dan verschiedene Browser heruntergeladen werden mit `playwright install`<br>
+Anschließend können dann verschiedene Browser heruntergeladen werden mit `playwright install`. <br>
 Details auf der [playwright-Website](https://playwright.dev/python/docs/intro). 
 
 Darüber hinaus müssen die Dateien aus diesem github repository heruntergeladen werden. Dies geht entweder per Download über den Browser, oder idealerweise - wenn `git` installiert ist - indem im Terminal `git clone https://github.com/vhoepfl/crawler.git` ausgeführt wird. 
@@ -168,7 +168,7 @@ Mittels dieser Option können spezifische Elemente oder Attribute festgelegt wer
     specific_tags: 
       - tag: article
         class: post_item_single # Oder auch post_type_post, post_format_ post-52228, ...
-        id: 
+        id: post-52228
     ```
     ```
     specific_tags: 
@@ -183,13 +183,19 @@ Mittels dieser Option können spezifische Elemente oder Attribute festgelegt wer
         id: 
     ```
     *Anmerkung:* Wenn bei `class="..."` mehrere Stichwörter stehen, darf aktuell nur eines der Stichwörter als Klasse angegeben werden. Falls mehrere unabhängig voneinander gewählt werden sollen, bitte einen weiteren Block anhängen und dort angeben. <br>
-    Für das spezifische Szenario, dass zwei oder mehrere Klassen *gleichzeitig* vorhanden sein sollen, könnte ich den Code anpassen, aktuell ist dies aber nicht möglich. 
-     `id: article-iliade, articleiliade`
+    Für das spezifische Szenario, dass zwei oder mehrere Klassen *gleichzeitig* vorhanden sein sollen, könnte ich den Code anpassen, aktuell ist dies aber nicht möglich.
+    ```
+    specific_tags: 
+      - tag: 
+        class: 
+        id: post-52228
+    ```
+    *Anmerkung:* Wenn `id` offensichtlich eine artikelspezifische ID ist, ist es nicht sinnvoll, hier einen Wert anzugeben, da dann nur ein einziger Artikel einen Treffer liefern würde. <br><br>
     **Details zu den Variablentypen:**
     `tag`, `class`und `id` unterscheiden sich an dieser Stelle teilweise von den Variablen für *date* und *title*. 
     - `tag` ist äquivalent
     - `class` nimmt spezifisch Bezug auf den Namen/Wert, den das `class`-Attribut besitzt
-    - `id` nimmt spezifisch Bezug auf den Namen/Wert, den das `id`-Attribut besitzt
+    - `id` nimmt spezifisch Bezug auf den Namen/Wert, den das `id`-Attribut besitzt. <br>
     **Beispiel:**
     `<article id="post-1882" class="post_item_single post_type_post post_format_ post-1882 post type-post ...`
       ```
@@ -219,3 +225,8 @@ Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern w
 - `mean_line_lenght_limit`
  Durchschnittliche Zahl an Wörtern pro (Text-)Zeile über die gesamte Seite - jede Seite mit kürzeren Zeilen wird ignoriert. <br>
  *Anmerkung:* Diese Metrik hilft zwar, Seiten mit vielen Links / kurzen Zeilen mit wenig brauchbarem Text auszusortieren, allerdings wird es vermutlich stark von der spezifischen Seite abhängen, ob diese Metrik Sinn macht und welcher Wert jeweils gut funktioniert. 
+
+
+## Hinweise/Erfahrungen aus dem Scraping
+- **Artikelvorschau:** Oftmals wird dasselbe tag, welches Artikel markiert, auch für kleine Artikelvorschautexte verwendet, was unerwünschten Text bringt
+- **Dynamisch generierte Websites:** Falls eine Seite beim nach-unten-Scrollen noch weitere Inhalte lädt, muss playwright verwendet werden. 
