@@ -3,7 +3,6 @@ from requests.exceptions import ConnectionError, Timeout, RequestException
 from bs4 import BeautifulSoup
 import re
 import handle_output
-from time import sleep
 import logging
 
 

@@ -1,6 +1,6 @@
 general: 
   playwright: False
-  delay: 1000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
+  delay: 2000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
   
 
 
@@ -52,7 +52,12 @@ output:
   console: 
     verbose: True # Gibt während des crawlen zusätzliche Infos aus
     print_one_per: 1 # Gibt bei einer von n Websiten Infos aus
-  file: # Filteroptionen - deaktivieren mit -1
+
+  file: # Welche Seiten sollen in Datei geschrieben werden - Alle Filteroptionen deaktivierbar mit -1
     percentage_limit: -1 # [1-100]: Jede Seite, auf der ein niedrigerer Prozentsatz an Text extrahiert wird, wird ignoriert
     word_count_limit: 150 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
     mean_line_lenght_limit: 20 # Durchschnittliche Zahl an Wörtern pro (Text-)Zeile: Seite ignoriert, falls darunter
+    
+    doublons: # Duplikate entfernen 
+      remove_doublons: True # Duplikatentfernung kann deaktiviert werden (vmtl. nie sinnvoll)
+      threshold_value: 0.7 # Alle Seiten, die eine Übereinstimmung mit einer anderen Seite *über diesem Wert* haben, werden ignoriert. 

@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from remove_doublons import ROUGEFilter
 
 class TerminalOutput:
     def __init__(self, settings, folder, filename) -> None:
@@ -8,6 +9,11 @@ class TerminalOutput:
         self.output_file_path = os.path.join(folder, filename)
         
         self.settings = settings
+
+        if settings ['file']['doublons']['remove_doublons']:
+            self.filter_duplicates = True
+            self.DuplicateFilter = ROUGEFilter(settings['file']['doublons']['threshold_value'])
+
         self.verbose = settings['console']['verbose']
         self.frequency = settings['console']['print_one_per']
         # Activated at each step where output is to be printed
@@ -105,23 +111,24 @@ class TerminalOutput:
             if percentage < self.settings['file']['percentage_limit']:
                 if self.do_print:
                     print(f'Checking page content - failed - percentage: {percentage}')
-                logging.info(f'Checking page content - failed - percentage: {percentage}\n')
+                logging.info(f"Checking page content - failed - percentage: {percentage} ")
                 return 0
         if self.settings['file']['word_count_limit'] != -1:
             if len(clean_text_words) < self.settings['file']['word_count_limit']:
                 if self.do_print and self.verbose:
                     print(f'Checking page content - failed - lenght: {len(clean_text_words)} words')
-                logging.info(f'Checking page content - failed - lenght: {len(clean_text_words)} words\n')
+                logging.info(f"Checking page content - failed - lenght: {len(clean_text_words)} words")
                 return 0
         if self.settings['file']['mean_line_lenght_limit'] != -1:
             if len(clean_text_words)/len(clean_text_lines) < self.settings['file']['mean_line_lenght_limit']:
                 if self.do_print and self.verbose:
                     print(f'Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}')
-                logging.info(f'Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}\n')
+                logging.info(f"Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}")
                 return 0
         if self.do_print and self.verbose:
             print('Checking page content - success')
-        logging.info('Checking page content - success\n')
+        
+        logging.info(f"Checking page content - success")
         return 1
 
 
@@ -131,7 +138,7 @@ class TerminalOutput:
         Differents pages are put into a block of <begin-of-url> ...text <end-of-url>
         Anything else separated via <separate-parts>\n
         """
-        if self.get_quality_rating(percentage, scraped_text):
+        def _writer():
             with open(self.output_file_path, 'a', encoding="utf-8") as fw:
                 fw.write('<begin-of-url>\n')
                 fw.write(url)
@@ -144,6 +151,19 @@ class TerminalOutput:
                 fw.write('\n<separate-parts>\n')
                 fw.write(scraped_text)
                 fw.write('\n<end-of-url>\n')
+
+        if self.filter_duplicates: 
+            if self.get_quality_rating(percentage, scraped_text) and self.DuplicateFilter.check_new_article(scraped_text):
+                self.DuplicateFilter.add_article(scraped_text, url)
+                _writer()
+        else: 
+            if self.get_quality_rating(percentage, scraped_text): 
+                _writer()
+        
+        # Adding linebreak to log, could be solved a lot cleaner
+        logging.info(f"\n")
+                
+                    
                
 
 
