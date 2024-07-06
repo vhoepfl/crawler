@@ -19,7 +19,7 @@ class Crawler:
             proxies = {'http': 'socks5h://10.64.0.1:1080',
                     'https': 'socks5h://10.64.0.1:1080'}
             self.session = requests.Session()
-            # self.session.proxies.update(proxies)
+            self.session.proxies.update(proxies)
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
@@ -266,9 +266,14 @@ class Crawler:
         """
         Generates the base URL of the website from a complete URL
         """
+        
         pattern = r"https?://[^/]*"
         site = re.match(pattern, url)
         if site is None:
-            raise ValueError("The entered starting page is not recognized as valid link") 
+            # Try adding 'https://'
+            url_with_https = 'https://' + url
+            site = re.match(pattern, url_with_https)
+            if site is None:
+                raise ValueError("The entered starting page is not recognized as valid link") 
         print('base url: ', site)
         return site.group() #string from match object
