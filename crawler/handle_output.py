@@ -10,6 +10,7 @@ class TerminalOutput:
         
         self.settings = settings
 
+        self.filter_duplicates = False
         if settings ['file']['doublons']['remove_doublons']:
             self.filter_duplicates = True
             self.DuplicateFilter = ROUGEFilter(settings['file']['doublons']['threshold_value'])
