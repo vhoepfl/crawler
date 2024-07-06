@@ -24,9 +24,10 @@ class ROUGEFilter:
         new_article_ngrams = self._get_ngrams(article_text)
         t0 = time()
         for i, ref_article in enumerate(self.ref_articles):
-            if self._calc_ngram_overlap(ref_article, new_article_ngrams) >= self.threshold:
+            score = self._calc_ngram_overlap(ref_article, new_article_ngrams)
+            if score >= self.threshold:
                 print('Found duplicate, discarding...')
-                logging.info(f"Removing duplicates - found overlap with {self.ref_urls[i]}")
+                logging.info(f"Removing duplicates - found overlap of {score} with {self.ref_urls[i]}")
                 return False
         print(time()-t0)
         return True

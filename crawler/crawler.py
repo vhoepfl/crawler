@@ -19,7 +19,7 @@ class Crawler:
             proxies = {'http': 'socks5h://10.64.0.1:1080',
                     'https': 'socks5h://10.64.0.1:1080'}
             self.session = requests.Session()
-            self.session.proxies.update(proxies)
+            # self.session.proxies.update(proxies)
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
