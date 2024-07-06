@@ -24,13 +24,14 @@ class Crawler:
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
         self.settings = settings
-        self.queue = set([starting_url])
+        self.base_url = self.get_base_url(starting_url)
+        self.queue = set([self.base_url])
         self.visited = set()
 
         # TODO: Implement robots.txt handling
         self.delay = self.settings['general']['delay']
 
-        self.base_url = self.get_base_url(starting_url)
+        
         self.ignored_pages = re.compile(r'.*\.(png|pdf|jpg)')
         self.match_absolute_url = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
 
@@ -266,7 +267,6 @@ class Crawler:
         """
         Generates the base URL of the website from a complete URL
         """
-        
         pattern = r"https?://[^/]*"
         site = re.match(pattern, url)
         if site is None:
@@ -275,5 +275,5 @@ class Crawler:
             site = re.match(pattern, url_with_https)
             if site is None:
                 raise ValueError("The entered starting page is not recognized as valid link") 
-        print('base url: ', site)
+        print('base url: ', site.group())
         return site.group() #string from match object
