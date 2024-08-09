@@ -19,7 +19,7 @@ class Crawler:
             proxies = {'http': 'socks5h://10.64.0.1:1080',
                     'https': 'socks5h://10.64.0.1:1080'}
             self.session = requests.Session()
-            # self.session.proxies.update(proxies)
+            self.session.proxies.update(proxies)
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
@@ -28,11 +28,10 @@ class Crawler:
         self.queue = set([self.base_url])
         self.visited = set()
 
-        # TODO: Implement robots.txt handling
         self.delay = self.settings['general']['delay']
 
-        
-        self.ignored_pages = re.compile(r'.*\.(png|pdf|jpg)')
+        self.ignored_pages =  re.compile('|'.join(self.settings['general']['pages_to_be_ignored']))
+        self.ignored_page_types = re.compile(r'.*\.(png|pdf|jpg)')
         self.match_absolute_url = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
 
         datetime_string = r'(?i)\d{1,4}\D{1,3}(\d{1,2}|janvier|février|fevrier|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|décembre|decembre)\D{1,3}\d{1,4}'
@@ -134,12 +133,12 @@ class Crawler:
             if link is not None: 
                 # Checks if link is on same site
                 if re.match(self.base_url, link): 
-                    if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
+                    if not re.match(self.ignored_page_types, link) and not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
                         if link not in self.visited: # Checks if already visited
                             self.queue.add(link)
                 # If link not on same site: outside -> ignore, relative link -> combine with base url
                 if not re.match(self.match_absolute_url, link): # If absolute and not on same website: ignored
-                    if not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf
+                    if not re.match(self.ignored_page_types, link) and not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
                         full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
                         if full_link not in self.visited: # Checks if already visited
                             self.queue.add(full_link)

@@ -1,6 +1,8 @@
 general: 
   playwright: False
   delay: 2000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
+  pages_to_be_ignored: # Regex als Liste hinzufügen - URL wird ignoriert bei match
+    
   
 
 
