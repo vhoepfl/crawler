@@ -17,7 +17,7 @@ Aktuell unterstützt der Code zwei verschiedene Möglichkeiten, auf die Seiten z
 - **requests**<br>
 Basismethode, um auf statische Websites zuzugreifen. Schneller als playwright sowie mit genaueren Fehlermeldungen - führt allerdings nur eine einzelne GET-Anfrage auf die Website aus und bekommt damit nur jenen Websiteninhalt zurück, welcher sofort zu Beginn geladen wird. 
 - **playwright**<br>
-Playwright öffnet ein echtes Browserfenster, um auf die Website zuzugreifen, und scrollt dann in mehreren Schritten bis nach unten. `delay`ist dabei die Wartezeit, während der die Seite laden kann, und nach deren Ablauf überprüft wird, ob noch neuer Inhalt lädt oder die Seite vollständig ist. 
+Playwright öffnet ein echtes Browserfenster, um auf die Website zuzugreifen, und scrollt dann in mehreren Schritten bis nach unten. `delay`ist dabei die Wartezeit, während der die Seite laden kann, und nach deren Ablauf überprüft wird, ob noch neuer Inhalt lädt oder die Seite vollständig ist. Es können verschiedene Buttons festgelegt werden, auf welche automatisch geklickt wird (z.B. für *Afficher plus*, Details siehe unter [general](#general))
 
 
 ## Setup
@@ -71,9 +71,28 @@ Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt. Dort k�
 Im Folgenden werden die verschiedenen Optionen genauer erklärt: 
 ### ```general```
 - `playwright: False`
-Falls `True`, wird ein playwright-Browser anstatt requests verwendet. Dies erhöht Websiteladezeiten signifikant, ist aber notwendig, um dynamisch generierte Websites korrekt zu scrapen, da ansonsten nur ein Bruchteil der Seite geladen ist und entsprechend gescraped wird. 
+Falls `True`, wird ein playwright-Browser anstatt requests verwendet. Dies erhöht Websiteladezeiten signifikant, ist aber notwendig, um dynamisch generierte Websites korrekt zu scrapen oder Buttons zu klicken, da ansonsten nur ein Bruchteil der Seite geladen ist und entsprechend gescraped wird. 
 - `delay: 0` 
 Bei Verwendung von Playwright, ansonsten ignoriert: Wartezeit (in ms) zwischen zwei Aufrufen. Idealerweise lang genug, um die Seite vollständig zu laden, aber dabei so kurz wie möglich. 
+- `click_buttons`
+Hier können mehrere Buttons angegeben werden, auf welche automatisch geklickt wird. <br>
+Anzugeben entweder als `button.Klasse` (da jeder button immer `button` als tag hat) oder auch nur `.Klasse`. <br>
+Beispiel: <br>
+**`button.eael-load-more-button`** für `<button class="eael-load-more-button hide-load-more" id="eael-load-more-btn-3f26d46"... `<br><br>
+Bitte immer nur eine der Klassen angeben! <br>
+Bitte als Liste angeben, d.h. 
+  ```
+  click_buttons: 
+    - button.eael-load-more-button
+    - button.close-popup
+    - ...
+  ```
+- `pages_to_be_ignored`
+Hier können URLS angegeben werden, welche ignoriert werden sollen. <br>
+Es kann Regex verwendet werden, d.h.  `https://argosfrance.org/boutique.*` ignoriert z.B. `https://argosfrance.org/boutique/#`, `https://argosfrance.org/produit/softshell-bleu-marine-argos/` etc. (`.*` steht für eine beliebige Zahl an beliebigen Zeichen) <br>
+Da Regex `\` und `/` als Sonderzeichen interpretiert, müssen diese normalerweise escaped werden. Dies passiert hier automatisch, es kann einfach eine URL in die *settings*-Datei kopiert werden und mit verschiedenen Regex-wildcards wie `.*`kombiniert werden. <br><br>
+Bitte die verschiedenen URLS in Form einer Liste angeben (Beispiel siehe **click-buttons**)! <br>
+
 
 ### ```metadata```
 #### ```date```
@@ -225,6 +244,10 @@ Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern w
 - `mean_line_lenght_limit`
  Durchschnittliche Zahl an Wörtern pro (Text-)Zeile über die gesamte Seite - jede Seite mit kürzeren Zeilen wird ignoriert. <br>
  *Anmerkung:* Diese Metrik hilft zwar, Seiten mit vielen Links / kurzen Zeilen mit wenig brauchbarem Text auszusortieren, allerdings wird es vermutlich stark von der spezifischen Seite abhängen, ob diese Metrik Sinn macht und welcher Wert jeweils gut funktioniert. 
+
+- `doublons`
+  Automatische Entfernung von Webseiten mit unterschiedlichen URLs aber identischem Inhalt. <br>
+  Mittels `threshold_value` kann angegeben werden, wie viel Prozent Überlappung gegeben sein müssen, damit die Seite ignoriert wird. 
 
 
 ## Hinweise/Erfahrungen aus dem Scraping
