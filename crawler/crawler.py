@@ -20,17 +20,18 @@ class Crawler:
                     'https': 'socks5h://10.64.0.1:1080'}
             self.session = requests.Session()
             self.session.proxies.update(proxies)
+
         text_output_path = 'scraped_pages_' + re.sub('(?<=_)_|(?<=^)_|_+$', '', re.sub(r'\W|https?|html', '_', starting_url[:100])) + '.txt'
         self.OutputHandler = handle_output.TerminalOutput(settings['output'], folder=settings['dir'], filename=text_output_path)
 
         self.settings = settings
         self.base_url = self.get_base_url(starting_url)
-        self.queue = set([self.base_url])
+        self.queue = set([starting_url])
         self.visited = set()
 
-        self.delay = self.settings['general']['delay']
-
-        self.ignored_pages =  re.compile('|'.join(self.settings['general']['pages_to_be_ignored']))
+       
+        self.ignored_pages =  re.compile(re.sub(r'(/|\\)', r'\\\1', '|'.join(self.settings['general']['pages_to_be_ignored']))) \
+            if self.settings['general']['pages_to_be_ignored'] else re.compile('')
         self.ignored_page_types = re.compile(r'.*\.(png|pdf|jpg)')
         self.match_absolute_url = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
 
@@ -44,7 +45,7 @@ class Crawler:
         """
         Iterates over queue, calling scraping and output functions
         """
-        while self.queue: 
+        while self.queue:
             status, url, soup = self._scrape_single_page_from_queue()
 
             if status:
@@ -70,32 +71,42 @@ class Crawler:
         url = self.queue.pop()
         self.visited.add(url)
 
-        try: 
-            if self.playwright_mode: 
-                def scroll_down_until_no_more_pages(page):
-                    # Get the initial height of the page
-                    last_height = page.evaluate("document.body.scrollHeight")
-                    while True:
-                        # Scroll down to the bottom of the page
-                        page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
-                        
-                        # Wait for some time to let new content load
-                        page.wait_for_timeout(self.delay)
-                        
-                        # Calculate new scroll height and compare with last scroll height
-                        new_height = page.evaluate("document.body.scrollHeight")
-                        if new_height == last_height:
-                            break
+        try:
+            if self.playwright_mode:
+                self.page.goto(url, timeout=60000)
+                # Get the initial height of the page
+                last_height = self.page.evaluate("document.body.scrollHeight")
+                while True:
+                    # Scroll down to the bottom of the page
+                    self.page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+                    self.page.wait_for_timeout(self.settings['general']['delay'])
+
+                    # Click all buttons on the page
+                    if self.settings['general']['click_buttons']:
+                        buttons = []
+                        # Iterate over all selectors defined in the settings
+                        for selector in self.settings['general']['click_buttons']:
+                            # Fetch all elements that match the current selector and extend the button list
+                            buttons.extend(self.page.query_selector_all(selector))
+                        for el in buttons:
+                            el.dispatch_event('click')
+                        self.page.wait_for_timeout(self.settings['general']['delay'])
+
+                    # Calculate new scroll height and compare with last scroll height
+                    new_height = self.page.evaluate("document.body.scrollHeight")
+                    if new_height <= last_height:
+                        break
+                    if new_height > last_height:
                         last_height = new_height
 
-                self.page.goto(url)
-                scroll_down_until_no_more_pages(self.page) #Makes sure the entire page was loaded
+                self.page.goto(url, timeout=60000)
+
                 html_content = self.page.content()
                 soup = BeautifulSoup(html_content, 'html.parser')
                 status = 1 # Placeholder, webpage status in playwright not directly returned
                 
                      
-            else: 
+            else:
                 r = self.session.get(url, timeout=30)
                 status = 1 if r.status_code == 200 else 0
                 if r.status_code != 200:
@@ -132,16 +143,24 @@ class Crawler:
             link = raw_link.get('href') 
             if link is not None: 
                 # Checks if link is on same site
-                if re.match(self.base_url, link): 
-                    if not re.match(self.ignored_page_types, link) and not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
-                        if link not in self.visited: # Checks if already visited
-                            self.queue.add(link)
+                if re.match(self.base_url, link):
+                    if not re.match(self.ignored_page_types, link):
+                        if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
+                            if link not in self.visited \
+                                and link + '/' not in self.visited \
+                                and link + '/#' not in self.visited \
+                                and link + '#' not in self.visited: # Checks if already visited
+                                    self.queue.add(link)
                 # If link not on same site: outside -> ignore, relative link -> combine with base url
                 if not re.match(self.match_absolute_url, link): # If absolute and not on same website: ignored
-                    if not re.match(self.ignored_page_types, link) and not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
-                        full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
-                        if full_link not in self.visited: # Checks if already visited
-                            self.queue.add(full_link)
+                    if not re.match(self.ignored_page_types, link):
+                        if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
+                            full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
+                            if full_link not in self.visited \
+                                and full_link + '/' not in self.visited \
+                                and full_link + '/#' not in self.visited \
+                                and full_link + '#' not in self.visited: # Checks if already visited
+                                    self.queue.add(full_link)
 
     def _extract_text(self, soup):
         def text_cleanup(text): 

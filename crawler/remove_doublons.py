@@ -29,7 +29,6 @@ class ROUGEFilter:
                 print('Found duplicate, discarding...')
                 logging.info(f"Removing duplicates - found overlap of {score} with {self.ref_urls[i]}")
                 return False
-        print(time()-t0)
         return True
 
     def _get_ngrams(self, text):
