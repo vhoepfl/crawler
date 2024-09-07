@@ -73,7 +73,7 @@ class Crawler:
 
         try:
             if self.playwright_mode:
-                self.page.goto(url, timeout=60000)
+                self.page.goto(url, timeout=120000)
                 # Get the initial height of the page
                 last_height = self.page.evaluate("document.body.scrollHeight")
                 while True:
@@ -163,7 +163,7 @@ class Crawler:
                                     self.queue.add(full_link)
 
     def _extract_text(self, soup):
-        def text_cleanup(text): 
+        def text_cleanup(text):
             """
             soup output should have a --separate-- separator between individual tags.
             This tag will be evaluated to check if additional spaces are needed
@@ -175,35 +175,51 @@ class Crawler:
             return text
         
         text_settings = self.settings['text_extraction']
-        #Entire website text
         complete_text = text_cleanup(soup.get_text(separator='--separate--'))
-        #Using tags defined in settings
         tuples = text_settings['specific_tags']
+        
+        # Removing invisible elements
+        for invisible_element in soup.find_all(style=lambda value: value and ('display:none' in value or 'font-size:0px' in value)):
+            invisible_element.replace_with('')
 
-        # Custom filter function
+        # Filter for specified tag
         def match_ids_and_classes(tag):
             for item in tuples:
-                if (((tag.name == item['tag']) if item['tag'] else True) and 
-                    ((tag.get('id') == item['id']) if item['id'] else True) and 
-                    ((item['class'] in set(tag.get('class', []))) if item['class'] else True)): 
-                    return True
-            return False
+                all_match = True  # Assume all conditions match initially
+                for key, value in item.items():
+                    if value:  # Only process if a value was provided for this key
+                        if key == 'tag':
+                            # Special handling for the tag name
+                            if tag.name != value:
+                                all_match = False
+                                break
+                        else:
+                            # Retrieve the attribute from the tag or use empty list if not found
+                            # Convert both to sets for a uniform comparison, even for single values or lists
+                            tag_values = tag.get(key, [])
+                            # Check if the sets intersect
+                            if value not in tag_values:
+                                all_match = False
+                                break
+                if all_match:
+                    return True  # Return True as soon as all conditions for an item match
+            return False  # Return False if no items matched
 
         # Find all elements with specified tags
         if tuples[0]['tag'] or tuples[0]['id'] or tuples[0]['class']: #If first tuple not empty
             text = text_cleanup('--separate--'.join(tag.get_text(separator='--separate--') for tag in soup.find_all(match_ids_and_classes)))
-        # Using html paragraphs
+        
+        # Filter for <p> (html paragraphs)
         elif text_settings['only_paragraphs']:
-            all_paragraphs = soup.find_all('p')
-
             def is_innermost(p_tag):
                 return not p_tag.find('p')
-
+            
+            all_paragraphs = soup.find_all('p')
             # Filter to get only innermost <p> tags
             innermost_paragraphs = [p for p in all_paragraphs if is_innermost(p)]
-
             # Extract text from the innermost <p> tags
             text = text_cleanup('--separate--'.join([p.get_text(separator='--separate--') for p in innermost_paragraphs]))
+        
         # Fallback option: Extracting anything
         else:
             text = complete_text
@@ -219,59 +235,30 @@ class Crawler:
         author_settings = self.settings['metadata']['author']
         volume_settings = self.settings['metadata']['volume']
         date_fallback = False
-        title = None
-        date = None
-        author = None
         volume = None
 
-        #Extracting date and title from the head of the html page
-        header_title = None
-        header_date = None
-        header_author = None
+        def check_if_match(settings):
+            if settings['tag']:
+                tags = soup.find_all(settings['tag'])
+                for tag in tags:
+                    if settings['attrib'] and settings['name']:
+                        if tag.has_attr(settings['attrib']) and settings['name'] in tag.get(settings['attrib'], []):
+                            return tag.get('content', '') or tag.get_text()
+                    else:
+                        return tag.get_text(separator=' ')
+            return None
 
-        if title_settings['tag']:
-            if title_settings['attrib'] and title_settings['name']:
-                header_title = soup.find(title_settings['tag'], attrs={title_settings['attrib']: title_settings['name']})
-                if header_title:
-                    title = header_title.get('content')
-                    if title is None: 
-                        title = header_title.get_text()
-            else:
-                header_title = soup.find(title_settings['tag'])
-                if header_title: # soup.find() returns None if not found
-                    title = header_title.get_text(separator=' ')
-
-        if date_settings['tag']:
-            if date_settings['attrib'] and date_settings['name']:
-                header_date = soup.find(date_settings['tag'], attrs={date_settings['attrib']: date_settings['name']})
-                if header_date:
-                    date = header_date.get('content')
-                    if date is None: 
-                        date = header_date.get_text()
-            else:
-                header_date = soup.find(date_settings['tag'])
-                if header_date:
-                    date = header_date.get_text(separator=' ')
+        title = check_if_match(title_settings)
+        date = check_if_match(date_settings)
+        author = check_if_match(author_settings)
 
         #Fallback method: Extract first date-like string from website text
-        if not header_date:
+        if not date:
             if date_settings['use_fallback_method']:
                 date_match = re.search(self.date_pattern, complete_text)
                 if date_match:
                     date = date_match.group()
                     date_fallback = True # Flag used in output
-
-        if author_settings['tag']:
-            if author_settings['attrib'] and author_settings['name']:
-                header_author = soup.find(author_settings['tag'], attrs={author_settings['attrib']: author_settings['name']})
-                if header_author:
-                    author = header_author.get('content')
-                    if author is None: # Has no content variable, e.g. <span class="post_author_name">Les Identitaires</span>
-                        author = header_author.get_text()
-            else:
-                header_author = soup.find(author_settings['tag'])
-                if header_author:
-                    author = header_author.get_text(separator=' ')        
 
         # Automatical extraction of volume numbers from title
         if volume_settings['extract_volume'] and title is not None:

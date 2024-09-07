@@ -1,7 +1,7 @@
 general: 
   playwright: True
   delay: 2000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
-  click_buttons:  # Für playwright: Buttons angeben mit button.Klasse oder nur .Klasse, wobei Klasse ein Wort aus zweitem Teil von 'class = Klasse-1 Klasse-2'
+  click_buttons:  # Für playwright: Buttons angeben als Liste mit button.Klasse oder nur .Klasse, wobei Klasse ein Wort aus zweitem Teil von 'class = Klasse-1 Klasse-2'
   pages_to_be_ignored: # URLs als Liste hinzufügen - regex (z.B. .*) kann verwendet werden, alle slashes werden automatisch escaped
 
     
@@ -35,7 +35,7 @@ metadata:
 
 
   volume: 
-    extract_volume: True # Jedes volume aus Titel (nicht Text) extrahiert
+    extract_volume: False # Jedes volume aus Titel (nicht Text) extrahiert
 
 
 text_extraction: 
