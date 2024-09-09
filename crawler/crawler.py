@@ -1,6 +1,6 @@
 import requests
 from requests.exceptions import ConnectionError, Timeout, RequestException
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 import re
 import handle_output
 import logging
@@ -73,7 +73,7 @@ class Crawler:
 
         try:
             if self.playwright_mode:
-                self.page.goto(url, timeout=120000)
+                self.page.goto(url, timeout=60000)
                 # Get the initial height of the page
                 last_height = self.page.evaluate("document.body.scrollHeight")
                 while True:
@@ -137,6 +137,7 @@ class Crawler:
 
         return status, url, soup
 
+
     def _extract_links(self, soup): 
         raw_links = soup.find_all('a')
         for raw_link in raw_links: 
@@ -162,52 +163,74 @@ class Crawler:
                                 and full_link + '#' not in self.visited: # Checks if already visited
                                     self.queue.add(full_link)
 
+
     def _extract_text(self, soup):
         def text_cleanup(text):
             """
             soup output should have a --separate-- separator between individual tags.
             This tag will be evaluated to check if additional spaces are needed
             """
-            text = re.sub(r'(?<=\s)--separate--', '', text)
-            text = re.sub(r'--separate--', ' ', text)
-            text = re.sub(r'^\n+|\n+$', '', text) # Remove empty lines at the start and end
-            text = re.sub(r'(?<=\n)\s*\n', '\n', text)
+            # Handling separators
+            text = re.sub(r'(?<=\s)--separate--', '', text) # Deletes separator after newline/whitespace
+            text = re.sub(r'\s*--separate--\Z', '', text) # Deletes separator at the end of the text
+            text = re.sub(r'--separate--', '\n', text) # Separators in the text -> space
+
+            # Cleanup
+            text = re.sub(r'\s*\n\s*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
+            text = re.sub(r'^\s+', '', text) # Remove leading whitespaces
+            text = re.sub(r'[^\S\n]+', ' ', text) # Replace multiple whitespaces with a single one
+            text = re.sub(r'\n\n+', '\n', text) # Combine multi-linebreaks into one
             return text
         
         text_settings = self.settings['text_extraction']
         complete_text = text_cleanup(soup.get_text(separator='--separate--'))
-        tuples = text_settings['specific_tags']
+        valid_patterns = text_settings['specific_tags']
         
         # Removing invisible elements
         for invisible_element in soup.find_all(style=lambda value: value and ('display:none' in value or 'font-size:0px' in value)):
             invisible_element.replace_with('')
 
         # Filter for specified tag
-        def match_ids_and_classes(tag):
-            for item in tuples:
-                all_match = True  # Assume all conditions match initially
-                for key, value in item.items():
-                    if value:  # Only process if a value was provided for this key
-                        if key == 'tag':
-                            # Special handling for the tag name
-                            if tag.name != value:
-                                all_match = False
+        def extract_text_recursively(root): 
+            text = ""
+            for child in root.children: 
+                child_text = ""
+                if isinstance(child, Tag):
+                    for pattern in valid_patterns: 
+                        if pattern['tag'] and not pattern['attrib']: # Only tag specified
+                            if child.name == pattern['tag']: 
+                                print(f'matched {child}')
+                                child_text = child.get_text(separator='--separate--') + '--separate--'
                                 break
-                        else:
-                            # Retrieve the attribute from the tag or use empty list if not found
-                            # Convert both to sets for a uniform comparison, even for single values or lists
-                            tag_values = tag.get(key, [])
-                            # Check if the sets intersect
-                            if value not in tag_values:
-                                all_match = False
-                                break
-                if all_match:
-                    return True  # Return True as soon as all conditions for an item match
-            return False  # Return False if no items matched
 
+                        elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
+                            assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
+                            name_values_for_attrib = child.get(pattern['attrib'], [])
+                            if child.name == pattern['tag'] and pattern['name'] in name_values_for_attrib: 
+                                print(f'matched {child}')
+                                child_text = child.get_text(separator='--separate--') + '--separate--'
+                                break
+
+                        else: # Only attrib and name specified
+                            assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
+                            name_values_for_attrib = child.get(pattern['attrib'], [])
+                            if pattern['name'] in name_values_for_attrib: 
+                                print(f'matched {child}')
+                                child_text = child.get_text(separator='--separate--') + '--separate--'
+                                break
+
+                    if child_text: 
+                        print('Got child text: ', child_text, '\n\n')
+                        text += child_text
+                    else:
+                        text += extract_text_recursively(child) + '--separate--'
+
+            return text
+  
         # Find all elements with specified tags
-        if tuples[0]['tag'] or tuples[0]['id'] or tuples[0]['class']: #If first tuple not empty
-            text = text_cleanup('--separate--'.join(tag.get_text(separator='--separate--') for tag in soup.find_all(match_ids_and_classes)))
+        if valid_patterns[0]['tag'] or valid_patterns[0]['attrib'] or valid_patterns[0]['name']: # If first tuple not empty
+            text = text_cleanup(extract_text_recursively(soup))
+            print(text)
         
         # Filter for <p> (html paragraphs)
         elif text_settings['only_paragraphs']:
@@ -267,6 +290,7 @@ class Crawler:
                 volume = vol_match.group(1)
 
         return title, date, date_fallback, author, volume
+
 
     def get_base_url(self, url):
         """

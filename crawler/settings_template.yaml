@@ -40,10 +40,10 @@ metadata:
 
 text_extraction: 
   only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
-  specific_tags: # HTML-Elemente identifiziert über: tag, class oder id - nach jedem tag-class-id-Paar wird als fixe Kombination gesucht
+  specific_tags: # HTML-Elemente identifiziert über: Nur tag, oder Kombination aus tag, attrib und name
     - tag: 
-      class: 
-      id: 
+      attrib: 
+      name: 
   # Weitere Paare können angegeben werden mit 
   # - tag: 
   #   class ..
