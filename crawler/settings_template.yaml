@@ -11,8 +11,8 @@ general:
 metadata: 
   date: 
     use_fallback_method: False # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
-    tag: div
-    attrib: class
+    tag: meta
+    attrib: name
     name: date
     # Entweder nur tag angeben, oder alle 3 Elemente 
     # Beispiel: 
@@ -28,9 +28,9 @@ metadata:
     # Siehe date für Details
 
   author: 
-    tag: span
-    attrib: class
-    name: publishedBy
+    tag: 
+    attrib: 
+    name: 
     # Siehe date für Details
 
 
@@ -41,15 +41,9 @@ metadata:
 text_extraction: 
   only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
   specific_tags: # HTML-Elemente identifiziert über: Nur tag, oder Kombination aus tag, attrib und name
-    - tag: div
-      attrib: class
-      name: beforeArticle
-    - tag: div
-      attrib: class
-      name: divTitreArticle
-    - tag: div
-      attrib: class
-      name: contenuArticle
+    - tag: 
+      attrib: 
+      name: 
   # Weitere Paare können angegeben werden mit 
   # - tag: 
   #   class ..

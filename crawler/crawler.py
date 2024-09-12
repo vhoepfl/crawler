@@ -1,6 +1,6 @@
 import requests
 from requests.exceptions import ConnectionError, Timeout, RequestException
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, Tag, NavigableString
 import re
 import handle_output
 import logging
@@ -50,8 +50,10 @@ class Crawler:
         self.html_to_md.ignore_images = True
         self.html_to_md.single_line_break = False
         self.html_to_md.asterisk_emphasis = True
-        self.html_to_md.ignore_emphasis = True
         self.html_to_md.body_width = 0
+        self.html_to_md.unicode_snob = True
+        self.html_to_md.escape_snob = True
+        self.html_to_md.dash_unordered_list = True
 
     def scrape(self): 
         """
@@ -186,82 +188,84 @@ class Crawler:
     def _extract_text(self, soup):
         def text_cleanup(text):
             """
-            soup output should have a --separate-- separator between individual tags.
-            This tag will be evaluated to check if additional spaces are needed
+            Can be used to clean the Markdown output of html2text. 
             """
             # Cleanup spaces
             text = re.sub(r'[\u200B-\u200D\uFEFF]', ' ', text)# Remove zero-width-spaces
-            text = re.sub(r'[^\S\r\n]*\n[^\S\r\n]*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
+            #text = re.sub(r'[^\S\r\n]*\n[^\S\r\n]*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
             text = re.sub(r'\s+\Z', '', text) # Remove trailing whitespaces - leading whitespaces already removed by summarizing
-            text = re.sub(r'[^\S\r\n]+', ' ', text) # Replace multiple whitespaces with a single one
-            text = re.sub(r'\n{3,}', '\n\n', text) # Combine multi-linebreaks into one
-
+            text = re.sub(r'\n\s*\n', '\n\n', text) # Combine multi-linebreaks into one
 
             # Cleanup markdown
-            text = re.sub(r'^[^\S\r\n]*\\?-\s*', '- ', text, flags=re.MULTILINE) # Escapte Aufzählungsstriche zu normalen 
-            text = re.sub(r'\\\.', '.', text) # Escapte Punkte zu normalen Punkten
-            text = re.sub(r'^>\s*', r'', text, flags=re.MULTILINE) # Einschub mit > entfernen
-            text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*){2,}', r'* ', text, flags=re.MULTILINE) # Mehrere Sterne zu einem 
+            #text = re.sub(r'^[^\S\r\n]*\\?-\s*', '- ', text, flags=re.MULTILINE) # Escapte Aufzählungsstriche zu normalen 
+            #text = re.sub(r'\\\.', '.', text) # Escapte Punkte zu normalen Punkten
+            #text = re.sub(r'^>\s*', r'', text, flags=re.MULTILINE) # Einschub mit > entfernen
+            #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*){2,}', r'* ', text, flags=re.MULTILINE) # Mehrere Sterne zu einem 
             #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*)+\n', r'\n', text, flags=re.MULTILINE) # Verirrte Sterne löschen
             
             return text
         
-        # Filter for specified tag
-        def extract_text_recursively(root): 
-            text = ""
-            for child in root.children: 
-                child_text = ""
-                if isinstance(child, Tag):
+        def check_for_pattern(tag): 
+            """
+            Filter function, checks if tag matches valid_patterns dict. 
+            valid_patterns (list) has to be defined: Contains dicts with keys 'tag', 'attrib' and 'name', 
+            of which values are used as pattern in matching of tags. """
+            try: 
+                if tag is not None: 
                     for pattern in valid_patterns: 
                         if pattern['tag'] and not pattern['attrib']: # Only tag specified
-                            if child.name == pattern['tag']: 
-                                if child.get_text().strip():
-                                    child_text = self.html_to_md.handle(str(child)) + '\n' 
-                                break
-
+                            if tag.name == pattern['tag']: 
+                                return True
+                            
                         elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = child.get(pattern['attrib'], [])
-                            if child.name == pattern['tag'] and pattern['name'] in name_values_for_attrib: 
-                                if child.get_text().strip():
-                                    child_text = self.html_to_md.handle(str(child)) + '\n' 
-                                break
-
+                            name_values_for_attrib = tag.get(pattern['attrib'], [])
+                            if tag.name == pattern['tag'] and pattern['name'] in name_values_for_attrib: 
+                                return True
+                            
                         else: # Only attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = child.get(pattern['attrib'], [])
+                            name_values_for_attrib = tag.get(pattern['attrib'], [])
                             if pattern['name'] in name_values_for_attrib: 
-                                if child.get_text().strip():
-                                    child_text = self.html_to_md.handle(str(child)) + '\n' 
-                                break
+                                return True
+            except:
+                pass
 
-                    if child_text: 
-                        text += child_text
-                    else:
-                        child_text = extract_text_recursively(child)
-                        if child_text: 
-                            text += child_text + '\n'
+            return False
+            
+        def decompose_rec(tag):
+            """
+            Decomposes all tags and strings in the HTML DOM tree (i.e. soup object) which are
+            not part of the valid tags specified in the settings. 
+            """
+            for c in tag.children: 
+                if isinstance(c, NavigableString): 
+                    c.replace_with('')
+                elif isinstance(c, Tag): 
+                    if check_for_pattern(c): 
+                        pass
+                    elif c.find(check_for_pattern): 
+                        decompose_rec(c)
+                    else: 
+                        c.decompose()
 
-            return text
-        
-        extraction_settings = self.settings['text_extraction']
-        complete_text = text_cleanup(self.html_to_md.handle(str(soup)))
-        valid_patterns = extraction_settings['specific_tags']
-        
         # Remove invisible elements
         for element in soup.find_all(lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
             element.decompose() # Removes the element from the soup
+        
+        extraction_settings = self.settings['text_extraction']
+        complete_text = text_cleanup(self.html_to_md.handle(str(soup)))
 
         # Extract text by tags
+        valid_patterns = extraction_settings['specific_tags']
         if valid_patterns[0]['tag'] or valid_patterns[0]['attrib'] or valid_patterns[0]['name']: # If first tuple not empty
-            text = text_cleanup(extract_text_recursively(soup))
+            decompose_rec(soup)
+            text = text_cleanup(self.html_to_md.handle(str(soup)))
         # Extract text by <p> (html paragraphs)
         elif extraction_settings['only_paragraphs']:
-            def is_innermost(p_tag):
-                return not p_tag.find('p')
-            all_paragraphs = soup.find_all('p')
-            innermost_paragraphs = [p for p in all_paragraphs if is_innermost(p)]
-            text = text_cleanup('\n'.join([h.handle(str(p)) for p in innermost_paragraphs]))
+            valid_patterns = [{'tag': 'p'}]
+            decompose_rec(soup)
+            text = text_cleanup(self.html_to_md.handle(str(soup)))
         # Fallback option: Extract all text
         else:
             text = complete_text
@@ -312,7 +316,7 @@ class Crawler:
         return title, date, date_fallback, author, volume
 
 
-    def get_base_url(self, url):
+    def _get_base_url(self, url):
         """
         Generates the base URL of the website from a complete URL
         """
