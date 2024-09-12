@@ -10,10 +10,10 @@ general:
 
 metadata: 
   date: 
-    use_fallback_method: True # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
-    tag: 
-    attrib: 
-    name: 
+    use_fallback_method: False # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
+    tag: div
+    attrib: class
+    name: date
     # Entweder nur tag angeben, oder alle 3 Elemente 
     # Beispiel: 
     # hmtl: <meta property="article:published_time" content="2024-04-02T16:09:32+00:00">
@@ -22,15 +22,15 @@ metadata:
     # tag:published_date
 
   title: 
-    tag: 
-    attrib: 
-    name: 
+    tag: meta
+    attrib: property
+    name: og:title
     # Siehe date für Details
 
   author: 
-    tag: 
-    attrib: 
-    name: 
+    tag: span
+    attrib: class
+    name: publishedBy
     # Siehe date für Details
 
 
@@ -41,9 +41,15 @@ metadata:
 text_extraction: 
   only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
   specific_tags: # HTML-Elemente identifiziert über: Nur tag, oder Kombination aus tag, attrib und name
-    - tag: 
-      attrib: 
-      name: 
+    - tag: div
+      attrib: class
+      name: beforeArticle
+    - tag: div
+      attrib: class
+      name: divTitreArticle
+    - tag: div
+      attrib: class
+      name: contenuArticle
   # Weitere Paare können angegeben werden mit 
   # - tag: 
   #   class ..
@@ -59,7 +65,7 @@ output:
 
   file: # Welche Seiten sollen in Datei geschrieben werden - Alle Filteroptionen deaktivierbar mit -1
     percentage_limit: -1 # [1-100]: Jede Seite, auf der ein niedrigerer Prozentsatz an Text extrahiert wird, wird ignoriert
-    word_count_limit: 150 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
+    word_count_limit: 100 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
     mean_line_lenght_limit: -1 # Durchschnittliche Zahl an Wörtern pro (Text-)Zeile: Seite ignoriert, falls darunter
     
     doublons: # Duplikate entfernen 
