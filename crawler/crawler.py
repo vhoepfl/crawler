@@ -84,34 +84,31 @@ class Crawler:
         try:
             if self.playwright_mode:
                 self.page.goto(url, timeout=60000)
-                # Get the initial height of the page
-                last_height = self.page.evaluate("document.body.scrollHeight")
-                while True:
-                    # Scroll down to the bottom of the page
-                    self.page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
+                
+                # Scroll page
+                delay_time = self.settings['general']['delay']/50
+                self.page.evaluate('''
+                    async (delay_time) => {
+                        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+                        for (let i = 0; i < document.body.scrollHeight; i += 100) {
+                            window.scrollTo(0, i);
+                            await delay(delay_time);  // Use the passed delay_time
+                        }
+                    }
+                ''', delay_time)  
+
+                # Click all buttons on the page
+                if self.settings['general']['click_buttons']:
+                    buttons = []
+                    # Iterate over all selectors defined in the settings
+                    for selector in self.settings['general']['click_buttons']:
+                        # Fetch all elements that match the current selector and extend the button list
+                        buttons.extend(self.page.query_selector_all(selector))
+                    for el in buttons:
+                        el.dispatch_event('click')
                     self.page.wait_for_timeout(self.settings['general']['delay'])
 
-                    # Click all buttons on the page
-                    if self.settings['general']['click_buttons']:
-                        buttons = []
-                        # Iterate over all selectors defined in the settings
-                        for selector in self.settings['general']['click_buttons']:
-                            # Fetch all elements that match the current selector and extend the button list
-                            buttons.extend(self.page.query_selector_all(selector))
-                        for el in buttons:
-                            el.dispatch_event('click')
-                        self.page.wait_for_timeout(self.settings['general']['delay'])
-
-                    # Calculate new scroll height and compare with last scroll height
-                    new_height = self.page.evaluate("document.body.scrollHeight")
-                    if new_height <= last_height:
-                        break
-                    if new_height > last_height:
-                        last_height = new_height
-
-                self.page.goto(url, timeout=60000)
-
-                # Evaluate and mark all elements for visibility
+                # Mark visible elements
                 self.page.evaluate("""() => {
                         document.querySelectorAll('*').forEach(el => {
                             const style = window.getComputedStyle(el);
