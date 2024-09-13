@@ -29,7 +29,7 @@ class Crawler:
 
         # Crawler config
         self.settings = settings
-        self.base_url = self.get_base_url(starting_url)
+        self.base_url = self._get_base_url(starting_url)
         self.queue = set([starting_url])
         self.visited = set()
        
@@ -205,12 +205,17 @@ class Crawler:
             
             return text
         
-        def check_for_pattern(tag): 
+        def get_check_pattern_func(valid_patterns:list): 
             """
-            Filter function, checks if tag matches valid_patterns dict. 
-            valid_patterns (list) has to be defined: Contains dicts with keys 'tag', 'attrib' and 'name', 
-            of which values are used as pattern in matching of tags. """
-            try: 
+            Returns a filter function, which matches it's tag input to the valid patterns
+            Args: 
+            pattern: A list of dicts, with a single tag configuration (tag, attrib, name) per dict.  
+                All 2 keys have to be presents, values may be empty strings
+            """
+            def check_pattern_func(tag): 
+                """
+                Filter function, checks if input matches valid patterns. 
+                """
                 if tag is not None: 
                     for pattern in valid_patterns: 
                         if pattern['tag'] and not pattern['attrib']: # Only tag specified
@@ -228,25 +233,33 @@ class Crawler:
                             name_values_for_attrib = tag.get(pattern['attrib'], [])
                             if pattern['name'] in name_values_for_attrib: 
                                 return True
-            except:
-                pass
-
-            return False
+                return False
             
-        def decompose_rec(tag):
+            return check_pattern_func
+        
+        def decompose_rec(tag, match_func, only_innermost=False):
             """
-            Decomposes all tags and strings in the HTML DOM tree (i.e. soup object) which are
-            not part of the valid tags specified in the settings. 
+            Decomposes the bs4 soup to keeps only matched tags, but with general structure intact
+            Args: 
+            pattern (list of dict): HTML tag patterns saved as a dict with the keys 'tag', 'attrib' and 'name'. 
+                                    Valid subsets: (tag), (attrib, name), (tag, attrib, name)
+            only_innermost (bool):  If True, matches are only checked for innermost tags, content of all other tags is decomposed. 
             """
             for c in tag.children: 
                 if isinstance(c, NavigableString): 
                     c.replace_with('')
                 elif isinstance(c, Tag): 
-                    if check_for_pattern(c): 
-                        pass
-                    elif c.find(check_for_pattern): 
-                        decompose_rec(c)
-                    else: 
+                    if match_func(c): # c matches a pattern
+                        if only_innermost: 
+                            if not any(isinstance(el, Tag) for el in c.children): # is innermost
+                                pass # Keep tag and children
+                            else: 
+                                decompose_rec(c, match_func)
+                        else: 
+                            pass # Keep tag and children
+                    elif c.find(match_func): # descendants of c match patterns
+                        decompose_rec(c, match_func)
+                    else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
                         c.decompose()
 
         # Remove invisible elements
@@ -256,16 +269,25 @@ class Crawler:
         extraction_settings = self.settings['text_extraction']
         complete_text = text_cleanup(self.html_to_md.handle(str(soup)))
 
-        # Extract text by tags
         valid_patterns = extraction_settings['specific_tags']
-        if valid_patterns[0]['tag'] or valid_patterns[0]['attrib'] or valid_patterns[0]['name']: # If first tuple not empty
-            decompose_rec(soup)
+        tags_specified = False
+        for el in valid_patterns: 
+            if el['tag'] or el['attrib'] or el['name']: 
+                tags_specified = True
+                break
+
+        # Extract text by tags if settings contain specified tags
+        if tags_specified: 
+            match_func = get_check_pattern_func(valid_patterns)
+            decompose_rec(soup, match_func)
             text = text_cleanup(self.html_to_md.handle(str(soup)))
-        # Extract text by <p> (html paragraphs)
+
+        # Extract *innermost* text by <p> (html paragraphs)
         elif extraction_settings['only_paragraphs']:
-            valid_patterns = [{'tag': 'p'}]
-            decompose_rec(soup)
+            match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}])
+            decompose_rec(soup, match_func, only_innermost=True)
             text = text_cleanup(self.html_to_md.handle(str(soup)))
+
         # Fallback option: Extract all text
         else:
             text = complete_text
