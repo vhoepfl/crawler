@@ -5,7 +5,10 @@ import re
 import handle_output
 import logging
 import html2text
+import json
+from markdownify import markdownify as md
 
+# html2text config
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
@@ -43,18 +46,7 @@ class Crawler:
 
         volume_string = r'\b(?:[Vv]ol(?:ume)?|[Nn]um(?:éro)?|[Nn]o?|[ÉéEe]d(?:ition)?|Issue|Iss|Livraison|Livr)[\Wº°]{1,3}([IVXLC]+|\d+)'
         self.volume_pattern = re.compile(volume_string) # group 1 returns the number either in arabic or roman numerals
-
-        # html2text config
-        self.html_to_md = html2text.HTML2Text()
-        self.html_to_md.ignore_links = True
-        self.html_to_md.ignore_images = True
-        self.html_to_md.single_line_break = False
-        self.html_to_md.asterisk_emphasis = True
-        self.html_to_md.body_width = 0
-        self.html_to_md.unicode_snob = True
-        self.html_to_md.escape_snob = True
-        self.html_to_md.dash_unordered_list = True
-
+        
     def scrape(self): 
         """
         Iterates over queue, calling scraping and output functions
@@ -63,15 +55,16 @@ class Crawler:
             status, url, soup = self._scrape_single_page_from_queue()
 
             if status:
+                self.OutputHandler.save_html(soup, url)
                 # Adding new links to queue
                 self._extract_links(soup)
-                # Extracting data
+                # Extracting metadata
                 title, date, date_fallback_flag, author, volume = self._extract_metadata(soup)
-                complete_text, text, percentage = self._extract_text(soup)
+                # Extracting text
+                complete_text, text, percentage = self._extract_text(soup) # Modifies soup! 
                 
                 self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, author, volume)
                 self.OutputHandler.write_output(url, text, title, date, author, volume, percentage)
-                self.OutputHandler.save_html(soup, url)
 
         if self.playwright_mode: 
             self.p.stop()
@@ -96,6 +89,7 @@ class Crawler:
                         }
                     }
                 ''', delay_time)  
+                self.page.wait_for_timeout(self.settings['general']['delay']/2)
 
                 # Click all buttons on the page
                 if self.settings['general']['click_buttons']:
@@ -106,7 +100,7 @@ class Crawler:
                         buttons.extend(self.page.query_selector_all(selector))
                     for el in buttons:
                         el.dispatch_event('click')
-                    self.page.wait_for_timeout(self.settings['general']['delay'])
+                    self.page.wait_for_timeout(self.settings['general']['delay']/2)
 
                 # Mark visible elements
                 self.page.evaluate("""() => {
@@ -120,7 +114,7 @@ class Crawler:
                     }""")
 
                 html_content = self.page.content()
-                soup = BeautifulSoup(html_content, 'html.parser')
+                soup = BeautifulSoup(html_content, 'lxml')
                 status = 1 # Placeholder, webpage status in playwright not directly returned
                 
                      
@@ -157,6 +151,26 @@ class Crawler:
 
 
     def _extract_links(self, soup): 
+        def test_variants_visited(link): 
+            """
+            Checks for all equivalent versions of a url if they were already visited. 
+            Returns: True if already visited
+            """
+            variants = [link]
+            if link[-2:] == '/#':
+                variants.append(link[:-1])
+                variants.append(link[:-2])
+            elif link[-1:] == '/': 
+                variants.append(link[:-1])
+            else: 
+                variants.append(link + '/')
+                variants.append(link + '/#')
+
+            for v in variants: 
+                if v in self.visited: 
+                    return True
+            return False
+
         raw_links = soup.find_all('a')
         for raw_link in raw_links: 
             link = raw_link.get('href') 
@@ -165,43 +179,18 @@ class Crawler:
                 if re.match(self.base_url, link):
                     if not re.match(self.ignored_page_types, link):
                         if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
-                            if link not in self.visited \
-                                and link + '/' not in self.visited \
-                                and link + '/#' not in self.visited \
-                                and link + '#' not in self.visited: # Checks if already visited
-                                    self.queue.add(link)
+                            if not test_variants_visited(link): # Checks if already visited
+                                self.queue.add(link)
                 # If link not on same site: outside -> ignore, relative link -> combine with base url
                 if not re.match(self.absolute_url_pattern, link): # If absolute and not on same website: ignored
                     if not re.match(self.ignored_page_types, link):
                         if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
                             full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
-                            if full_link not in self.visited \
-                                and full_link + '/' not in self.visited \
-                                and full_link + '/#' not in self.visited \
-                                and full_link + '#' not in self.visited: # Checks if already visited
-                                    self.queue.add(full_link)
+                            if not test_variants_visited(full_link): # Checks if already visited
+                                self.queue.add(full_link)
 
 
-    def _extract_text(self, soup):
-        def text_cleanup(text):
-            """
-            Can be used to clean the Markdown output of html2text. 
-            """
-            # Cleanup spaces
-            text = re.sub(r'[\u200B-\u200D\uFEFF]', ' ', text)# Remove zero-width-spaces
-            #text = re.sub(r'[^\S\r\n]*\n[^\S\r\n]*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
-            text = re.sub(r'\s+\Z', '', text) # Remove trailing whitespaces - leading whitespaces already removed by summarizing
-            text = re.sub(r'\n\s*\n', '\n\n', text) # Combine multi-linebreaks into one
-
-            # Cleanup markdown
-            #text = re.sub(r'^[^\S\r\n]*\\?-\s*', '- ', text, flags=re.MULTILINE) # Escapte Aufzählungsstriche zu normalen 
-            #text = re.sub(r'\\\.', '.', text) # Escapte Punkte zu normalen Punkten
-            #text = re.sub(r'^>\s*', r'', text, flags=re.MULTILINE) # Einschub mit > entfernen
-            #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*){2,}', r'* ', text, flags=re.MULTILINE) # Mehrere Sterne zu einem 
-            #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*)+\n', r'\n', text, flags=re.MULTILINE) # Verirrte Sterne löschen
-            
-            return text
-        
+    def _extract_text(self, soup):      
         def get_check_pattern_func(valid_patterns:list): 
             """
             Returns a filter function, which matches it's tag input to the valid patterns
@@ -242,7 +231,7 @@ class Crawler:
                                     Valid subsets: (tag), (attrib, name), (tag, attrib, name)
             only_innermost (bool):  If True, matches are only checked for innermost tags, content of all other tags is decomposed. 
             """
-            for c in tag.children: 
+            for c in list(tag.children): 
                 if isinstance(c, NavigableString): 
                     c.replace_with('')
                 elif isinstance(c, Tag): 
@@ -251,7 +240,7 @@ class Crawler:
                             if not any(isinstance(el, Tag) for el in c.children): # is innermost
                                 pass # Keep tag and children
                             else: 
-                                decompose_rec(c, match_func)
+                                decompose_rec(c, match_func, only_innermost=True)
                         else: 
                             pass # Keep tag and children
                     elif c.find(match_func): # descendants of c match patterns
@@ -259,66 +248,98 @@ class Crawler:
                     else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
                         c.decompose()
 
-        # Remove invisible elements
-        for element in soup.find_all(lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
-            element.decompose() # Removes the element from the soup
-        
-        extraction_settings = self.settings['text_extraction']
-        complete_text = text_cleanup(self.html_to_md.handle(str(soup)))
+                else: 
+                    try: 
+                        c.decompose()
+                    except Exception as e: 
+                        print(e)
 
+        # Remove invisible or empty (=no text content) elements
+        to_decompose = []
+        if soup.find_all(lambda tag: tag.has_attr('data-visible')): # If playwright was used
+            for el in soup.find_all(lambda tag: (not tag.get_text(strip=True)) or not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
+                to_decompose.append(el) 
+        else: 
+            for el in soup.find_all(True):
+                style = el.get('style', '').lower()
+                if (not el.get_text(strip=True)) or 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
+                    to_decompose.append(el)
+
+        for el in to_decompose:
+            el.decompose() 
+
+        complete_text = self._html_to_text(str(soup))
+
+        extraction_settings = self.settings['text_extraction']
         valid_patterns = extraction_settings['specific_tags']
+
         tags_specified = False
         for el in valid_patterns: 
             if el['tag'] or el['attrib'] or el['name']: 
                 tags_specified = True
                 break
-
         # Extract text by tags if settings contain specified tags
         if tags_specified: 
             match_func = get_check_pattern_func(valid_patterns)
             decompose_rec(soup, match_func)
-            text = text_cleanup(self.html_to_md.handle(str(soup)))
-
+            text = self._html_to_text(str(soup))
         # Extract *innermost* text by <p> (html paragraphs)
         elif extraction_settings['only_paragraphs']:
             match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}])
             decompose_rec(soup, match_func, only_innermost=True)
-            text = text_cleanup(self.html_to_md.handle(str(soup)))
-
+            text = self._html_to_text(str(soup))
         # Fallback option: Extract all text
         else:
             text = complete_text
 
-        percentage = len(text) / len(complete_text) if len(complete_text) > 0 else 1
-        percentage = round(percentage*100)
+        percentage = round((len(text) / len(complete_text) if len(complete_text) > 0 else 1)*100)
 
         return complete_text, text, percentage
 
 
     def _extract_metadata(self, soup):
+        def check_if_match(settings):
+            # Extraction from yoast seo script 
+            if 'yoast_seo_name' in settings.keys() and settings['yoast_seo_name']: 
+                tags = soup.find_all(settings['tag'])
+                yoast_text = ''
+                for tag in tags:
+                    if settings['attrib'] and settings['name']:
+                        if tag.has_attr(settings['attrib']) and settings['name'] in tag.get(settings['attrib'], []):
+                            yoast_text = tag.get_text()
+                            break
+                    else:
+                        yoast_text =  tag.get_text()
+                        break
+
+                if yoast_text: 
+                    yoast_data = json.loads(yoast_text)
+                    for item in yoast_data.get('@graph', []):
+                        if settings['yoast_seo_name'] in item:
+                            return item.get(settings['yoast_seo_name'])
+            else: 
+                # Robust extraction from normal html
+                if settings['tag']:
+                    tags = soup.find_all(settings['tag'])
+                    for tag in tags:
+                        if settings['attrib'] and settings['name']:
+                            if tag.has_attr(settings['attrib']) and settings['name'] in tag.get(settings['attrib'], []):
+                                return tag.get('content', '') or tag.get_text() or tag.get('value', '')
+                        else:
+                            return tag.get_text(separator=' ')
+            return None
+
         date_settings = self.settings['metadata']['date']
         title_settings = self.settings['metadata']['title']
         author_settings = self.settings['metadata']['author']
         volume_settings = self.settings['metadata']['volume']
-        date_fallback = False
-        volume = None
-
-        def check_if_match(settings):
-            if settings['tag']:
-                tags = soup.find_all(settings['tag'])
-                for tag in tags:
-                    if settings['attrib'] and settings['name']:
-                        if tag.has_attr(settings['attrib']) and settings['name'] in tag.get(settings['attrib'], []):
-                            return tag.get('content', '') or tag.get_text()
-                    else:
-                        return tag.get_text(separator=' ')
-            return None
 
         title = check_if_match(title_settings)
         date = check_if_match(date_settings)
         author = check_if_match(author_settings)
 
-        #Fallback method: Extract first date-like string from website text
+        # Date: Fallback method - extract first date-like string from website text
+        date_fallback = False
         if not date:
             if date_settings['use_fallback_method']:
                 date_match = re.search(self.date_pattern, soup.get_text())
@@ -327,6 +348,7 @@ class Crawler:
                     date_fallback = True # Flag used in output
 
         # Automatical extraction of volume numbers from title
+        volume = None
         if volume_settings['extract_volume'] and title is not None:
             vol_match = re.search(self.volume_pattern, title)
             if vol_match:
@@ -349,3 +371,46 @@ class Crawler:
                 raise ValueError("The entered starting page is not recognized as valid link") 
         print('base url: ', site.group())
         return site.group() #string from match object
+
+
+    def _html_to_text(self, html_string): 
+        """
+        Converts the html_string to plain text using html2text. 
+        Creates a new html2text object each time to reduce the impact of a html2text bug, 
+        where part of the content is accumulated at the end of the Markdown text. 
+        *markdownify* would be an alternative, but html2text output is more similar to the website formatting
+        """
+        def text_cleanup(text):
+            """
+            Can be used to clean the Markdown output of html2text. 
+            """
+            # Cleanup spaces
+            text = re.sub(r'[\u200B-\u200D\uFEFF]', ' ', text)# Remove zero-width-spaces
+            text = re.sub(r'^\s+\n', '', text) # Remove spaces at start of text
+            #text = re.sub(r'[^\S\r\n]*\n[^\S\r\n]*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
+            text = re.sub(r'\s+\Z', '', text) # Remove trailing whitespaces - leading whitespaces already removed by summarizing
+            text = re.sub(r'\n\s*\n', '\n\n', text) # Combine multi-linebreaks into one
+
+            # Cleanup markdown
+            # To reformat / clean up links: (?<![!\\\s*_])\[\s*(.*?)\s*\]
+
+            #text = re.sub(r'^[^\S\r\n]*\\?-\s*', '- ', text, flags=re.MULTILINE) # Escapte Aufzählungsstriche zu normalen 
+            #text = re.sub(r'\\\.', '.', text) # Escapte Punkte zu normalen Punkten
+            #text = re.sub(r'^>\s*', r'', text, flags=re.MULTILINE) # Einschub mit > entfernen
+            #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*){2,}', r'* ', text, flags=re.MULTILINE) # Mehrere Sterne zu einem 
+            #text = re.sub(r'^([^\S\r\n]*\*[^\S\r\n]*)+\n', r'\n', text, flags=re.MULTILINE) # Verirrte Sterne löschen
+            
+            return text
+        
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = False
+        h.single_line_break = False
+        h.asterisk_emphasis = True
+        h.body_width = 0
+        h.unicode_snob = True
+        h.ignore_tables = True
+        h.escape_snob = True
+        h.dash_unordered_list = True
+
+        return text_cleanup(h.handle(html_string))

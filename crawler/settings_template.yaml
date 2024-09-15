@@ -1,19 +1,18 @@
 general: 
-  playwright: True
-  delay: 2000 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
+  playwright: False
+  delay: 500 # Für playwright: Wartezeit, nach welcher kontrolliert wird, ob Website noch lädt
   click_buttons:  # Für playwright: Buttons angeben als Liste mit button.Klasse oder nur .Klasse, wobei Klasse ein Wort aus zweitem Teil von 'class = Klasse-1 Klasse-2'
   pages_to_be_ignored: # URLs als Liste hinzufügen - regex (z.B. .*) kann verwendet werden, alle slashes werden automatisch escaped
-
+    - .*#forum.*
     
   
-
 
 metadata: 
   date: 
     use_fallback_method: False # Falls kein Datum im HTML-head gefunden: Erstes Datum im Websitentext verwendet
-    tag: meta
+    tag: input
     attrib: name
-    name: date
+    name: datearticleen
     # Entweder nur tag angeben, oder alle 3 Elemente 
     # Beispiel: 
     # hmtl: <meta property="article:published_time" content="2024-04-02T16:09:32+00:00">
@@ -39,17 +38,17 @@ metadata:
 
 
 text_extraction: 
-  only_paragraphs: True # Text nur extrahiert aus <p>-tags (paragraphs) 
-  specific_tags: # HTML-Elemente identifiziert über: Nur tag, oder Kombination aus tag, attrib und name
+  only_paragraphs: False # Text nur extrahiert aus <p>-tags (paragraphs) 
+  specific_tags: # HTML-Elemente identifiziert über: tag, class oder id - nach jedem tag-class-id-Paar wird als fixe Kombination gesucht
     - tag: 
-      attrib: 
-      name: 
+      attrib: class
+      name: crayon
+    - tag: div
+      attrib: class
+      name: notes
   # Weitere Paare können angegeben werden mit 
   # - tag: 
   #   class ..
-
-    
-  
 
 
 output: 
@@ -59,7 +58,7 @@ output:
 
   file: # Welche Seiten sollen in Datei geschrieben werden - Alle Filteroptionen deaktivierbar mit -1
     percentage_limit: -1 # [1-100]: Jede Seite, auf der ein niedrigerer Prozentsatz an Text extrahiert wird, wird ignoriert
-    word_count_limit: 100 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
+    word_count_limit: 70 # Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert
     mean_line_lenght_limit: -1 # Durchschnittliche Zahl an Wörtern pro (Text-)Zeile: Seite ignoriert, falls darunter
     
     doublons: # Duplikate entfernen 
