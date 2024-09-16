@@ -6,9 +6,7 @@ import handle_output
 import logging
 import html2text
 import json
-from markdownify import markdownify as md
 
-# html2text config
 
 class Crawler: 
     def __init__(self, settings, starting_url) -> None:
@@ -32,12 +30,12 @@ class Crawler:
 
         # Crawler config
         self.settings = settings
-        self.base_url = self._get_base_url(starting_url)
+        self.base_url, self.base_url_pattern = self._get_base_url(starting_url)
         self.queue = set([starting_url])
         self.visited = set()
        
-        self.ignored_pages =  re.compile(re.sub(r'(/|\\)', r'\\\1', '|'.join(self.settings['general']['pages_to_be_ignored']))) \
-            if self.settings['general']['pages_to_be_ignored'] else re.compile('')
+        self.ignored_pages =  re.sub(r'(/|\\)', r'\\\1', '|'.join(self.settings['general']['pages_to_be_ignored'])) \
+            if self.settings['general']['pages_to_be_ignored'] else ''
         self.ignored_page_types = re.compile(r'.*\.(png|pdf|jpg)')
         self.absolute_url_pattern = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
 
@@ -173,19 +171,20 @@ class Crawler:
 
         raw_links = soup.find_all('a')
         for raw_link in raw_links: 
+            
             link = raw_link.get('href') 
             if link is not None: 
                 # Checks if link is on same site
-                if re.match(self.base_url, link):
+                if re.match(self.base_url_pattern, link):
                     if not re.match(self.ignored_page_types, link):
-                        if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
+                        if not self.ignored_pages or re.search(self.ignored_pages, link) is None: # Checks if is a png/jpg/pdf or in blacklist
                             if not test_variants_visited(link): # Checks if already visited
                                 self.queue.add(link)
                 # If link not on same site: outside -> ignore, relative link -> combine with base url
                 if not re.match(self.absolute_url_pattern, link): # If absolute and not on same website: ignored
+                    full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
                     if not re.match(self.ignored_page_types, link):
-                        if not self.settings['general']['pages_to_be_ignored'] or not re.match(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
-                            full_link = self.base_url + link if len(link) > 0 and link[0] == '/' else self.base_url + '/' + link
+                        if not self.ignored_pages or not re.search(self.ignored_pages, link): # Checks if is a png/jpg/pdf or in blacklist
                             if not test_variants_visited(full_link): # Checks if already visited
                                 self.queue.add(full_link)
 
@@ -259,17 +258,14 @@ class Crawler:
         if soup.find_all(lambda tag: tag.has_attr('data-visible')): # If playwright was used
             for el in soup.find_all(lambda tag: (not tag.get_text(strip=True)) or not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
                 to_decompose.append(el) 
-        else: 
-            for el in soup.find_all(True):
-                style = el.get('style', '').lower()
-                if (not el.get_text(strip=True)) or 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
-                    to_decompose.append(el)
-
+        for el in soup.find_all(True):
+            style = el.get('style', '').lower()
+            if (not el.get_text(strip=True)) or 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
+                to_decompose.append(el)
         for el in to_decompose:
             el.decompose() 
 
         complete_text = self._html_to_text(str(soup))
-
         extraction_settings = self.settings['text_extraction']
         valid_patterns = extraction_settings['specific_tags']
 
@@ -325,6 +321,8 @@ class Crawler:
                         if settings['attrib'] and settings['name']:
                             if tag.has_attr(settings['attrib']) and settings['name'] in tag.get(settings['attrib'], []):
                                 return tag.get('content', '') or tag.get_text() or tag.get('value', '')
+                        elif settings['attrib']: 
+                            return tag.get(settings['attrib'])
                         else:
                             return tag.get_text(separator=' ')
             return None
@@ -359,7 +357,7 @@ class Crawler:
 
     def _get_base_url(self, url):
         """
-        Generates the base URL of the website from a complete URL
+        Generates the base URL pattern of the website from a complete URL
         """
         pattern = r"https?://[^/]*"
         site = re.match(pattern, url)
@@ -369,8 +367,12 @@ class Crawler:
             site = re.match(pattern, url_with_https)
             if site is None:
                 raise ValueError("The entered starting page is not recognized as valid link") 
-        print('base url: ', site.group())
-        return site.group() #string from match object
+        raw_base_url = site.group()
+        part_url = re.match(r'https?://?([^[^/]+)', raw_base_url).group(1)
+        full_pattern = r'(https?://)?' + re.escape(part_url)
+        print('base url pattern: ', full_pattern)
+
+        return raw_base_url, full_pattern # pattern to match website
 
 
     def _html_to_text(self, html_string): 

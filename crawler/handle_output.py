@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from remove_doublons import ROUGEFilter
+from remove_doublons import MinHashFilter
 
 class TerminalOutput:
     def __init__(self, settings, folder, filename) -> None:
@@ -13,7 +13,7 @@ class TerminalOutput:
         self.filter_duplicates = False
         if settings ['file']['doublons']['remove_doublons']:
             self.filter_duplicates = True
-            self.DuplicateFilter = ROUGEFilter(settings['file']['doublons']['threshold_value'])
+            self.DuplicateFilter = MinHashFilter(settings['file']['doublons']['threshold_value'])
 
         self.verbose = settings['console']['verbose']
         self.frequency = settings['console']['print_one_per']
@@ -29,17 +29,20 @@ class TerminalOutput:
         self.missing_title_and_date_count = 0
         self.total_count = 0
 
+        self.html_buffer = [''] * 10
+        self.scraped_text_buffer = [''] * 10
+
     def save_html(self, soup, url):
         """
         Writes a soup html object to a file, using the url as filename
         """
-        
         filename = 'all_pages_html.txt'
-
-        with open(os.path.join(self.dir, filename), 'a', encoding='utf-8') as fw:
-            fw.write('\n--- Separator ---\n')
-            fw.write(url + '\n')
-            fw.write(str(soup))
+        text = '\n--- Separator ---\n' + url + '\n' + str(soup)
+        self.html_buffer[self.total_count%10] = text
+        # Write buffer to file
+        if self.total_count%10 == 9: 
+            with open(os.path.join(self.dir, filename), 'a', encoding='utf-8') as fw:
+                    fw.write(''.join(self.html_buffer))
         
 
     def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, author, volume):
@@ -67,23 +70,23 @@ class TerminalOutput:
             else: 
                 self.high_count += 1
         self.total_count += 1
-        self.print_count += 1
         
-        visual = int(self.missing_title_and_date_count/10)*'-' + \
-                int(self.missing_date_count/10)*'T' + \
-                int(self.missing_title_count/10)*'D' + \
-                int(self.low_count/10)*'░' + \
-                int(self.mid_count/10)*'▒' + \
-                int(self.high_count/10)*'▓' + \
-                int(queue_len/10)*'*'
+        total_visual_points = self.total_count + queue_len
+
+        visual = int(50*(self.missing_title_and_date_count/total_visual_points))*'-' + \
+                int(50*(self.missing_date_count/total_visual_points))*'T' + \
+                int(50*(self.missing_title_count/total_visual_points))*'D' + \
+                int(50*(self.low_count/total_visual_points))*'░' + \
+                int(50*(self.mid_count/total_visual_points))*'▒' + \
+                int(50*(self.high_count/total_visual_points))*'▓' + \
+                int(50*(queue_len/total_visual_points))*'*'
         
         text =  f"Step {self.total_count}: {url}\n"
         text += f"{percentage} % of content of current page extracted\n"
         text += f"vol. {volume if volume else '-'}, {'⚠' if date_fallback_flag else ''} {date if date else '-'}, {author if author else '-'}, {title if title else '-'}"
         
-        if self.print_count == self.frequency:
+        if self.total_count % self.frequency == 0: 
             self.do_print = True
-            self.print_count = 0
         else:
             self.do_print = False
         
@@ -113,24 +116,24 @@ class TerminalOutput:
                 if self.do_print:
                     print(f'Checking page content - failed - percentage: {percentage}')
                 logging.info(f"Checking page content - failed - percentage: {percentage} ")
-                return 0
+                return False
         if self.settings['file']['word_count_limit'] != -1:
             if len(clean_text_words) < self.settings['file']['word_count_limit']:
                 if self.do_print and self.verbose:
                     print(f'Checking page content - failed - lenght: {len(clean_text_words)} words')
                 logging.info(f"Checking page content - failed - lenght: {len(clean_text_words)} words")
-                return 0
+                return False
         if self.settings['file']['mean_line_lenght_limit'] != -1:
             if len(clean_text_words)/len(clean_text_lines) < self.settings['file']['mean_line_lenght_limit']:
                 if self.do_print and self.verbose:
                     print(f'Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}')
                 logging.info(f"Checking page content - failed - mean line length: {len(clean_text_words)/len(clean_text_lines)}")
-                return 0
+                return False
         if self.do_print and self.verbose:
             print('Checking page content - success')
         
         logging.info(f"Checking page content - success")
-        return 1
+        return True
 
 
     def write_output(self, url, scraped_text, title, date, author, volume, percentage): 
@@ -139,28 +142,36 @@ class TerminalOutput:
         Differents pages are put into a block of <begin-of-url> ...text <end-of-url>
         Anything else separated via <separate-parts>\n
         """
-        def _writer():
-            with open(self.output_file_path, 'a', encoding="utf-8") as fw:
-                fw.write('<begin-of-url>\n')
-                fw.write(url)
-                fw.write('\n<separate-parts>\n')
-                fw.write(title if title else '')
-                fw.write('\n<separate-parts>\n')
-                fw.write(date if date else '')
-                fw.write('\n<separate-parts>\n')
-                fw.write(author if author else '')
-                fw.write('\n<separate-parts>\n')
-                fw.write(scraped_text)
-                fw.write('\n<end-of-url>\n')
-
+        # Check quality thresholds
+        write_text = False
         if self.filter_duplicates: 
+            import time
+            t0 = time.time()
             if self.get_quality_rating(percentage, scraped_text) and self.DuplicateFilter.check_new_article(scraped_text):
                 self.DuplicateFilter.add_article(scraped_text, url)
-                _writer()
+                write_text = True
+                print(time.time() - t0)
         else: 
             if self.get_quality_rating(percentage, scraped_text): 
-                _writer()
+                write_text = True
+
+
+        if write_text: 
+            text = '<begin-of-url>\n' + url + \
+                    '\n<separate-parts>\n' + (title if title else '') + \
+                    '\n<separate-parts>\n' + (date if date else '') + \
+                    '\n<separate-parts>\n' + (author if author else '') + \
+                    '\n<separate-parts>\n' + scraped_text + '\n<end-of-url>\n'
+        else: 
+            text = ''
+        self.scraped_text_buffer[self.total_count%10] = text
         
+        # Write buffer to file
+        if self.total_count%10 == 9: 
+            with open(self.output_file_path, 'a', encoding="utf-8") as fw:
+                fw.write(''.join(self.scraped_text_buffer))
+
+                
         # Adding linebreak to log, could be solved a lot cleaner
         logging.info(f"\n")
                 

@@ -1,64 +1,40 @@
-from nltk.tokenize import word_tokenize
-from nltk.util import ngrams
-from time import time
+from datasketch import MinHash, MinHashLSH
 import logging
 
-class ROUGEFilter: 
+class MinHashFilter: 
     def __init__(self, threshold = 0.8) -> None:
-        self.ref_articles = []
-        self.ref_urls = []
-        self.threshold = threshold
+        # Create an LSH index
+        self.lsh = MinHashLSH(threshold=threshold, num_perm=128)
 
     def add_article(self, article_text:str, url:str):
         """
         Add a new article to the reference articles - if a future article is similar to this one, 
         it will be ignored as doublon. 
         """
-        self.ref_articles.append(self._get_ngrams(article_text))
-        self.ref_urls.append(url)
+        m = self._get_minhash(article_text)
+        self.lsh.insert(url, m)
 
     def check_new_article(self, article_text:str):
         """
         Returns True if article_text is not similar to any other reference text
         """
-        new_article_ngrams = self._get_ngrams(article_text)
-        t0 = time()
-        for i, ref_article in enumerate(self.ref_articles):
-            score = self._calc_ngram_overlap(ref_article, new_article_ngrams)
-            if score >= self.threshold:
-                print('Found duplicate, discarding...')
-                logging.info(f"Removing duplicates - found overlap of {score} with {self.ref_urls[i]}")
-                return False
+        m = self._get_minhash(article_text)
+        result = self.lsh.query(m)
+        if result: 
+            print('Found duplicate, discarding...')
+            logging.info(f"Removing duplicates - found probable overlap of with {result}")
+            return False
         return True
 
-    def _get_ngrams(self, text):
-        tokens = word_tokenize(text)
-        tokens = [token.lower() for token in tokens if len(token) > 1] #same as unigrams
-        res = set(ngrams(tokens, 3)) #Using trigrams
-        return res
-
-    def _calc_ngram_overlap(self, reference_ngrams, evaluated_ngrams): 
-        """
-        Returns a estimate for the ROUGE metric using the code from 
-        https://github.com/nlpyang/PreSumm/blob/master/src/prepro/data_builder.py#L140
-        More infos: 
-        https://stackoverflow.com/questions/67543209/calculating-bleu-and-rouge-score-as-fast-as-possible
-        """
-        reference_count = len(reference_ngrams)
-        evaluated_count = len(evaluated_ngrams)
-
-        overlapping_ngrams = evaluated_ngrams.intersection(reference_ngrams)
-        overlapping_count = len(overlapping_ngrams)
-
-        if evaluated_count == 0:
-            precision = 0.0
-        else:
-            precision = overlapping_count / evaluated_count
-
-        if reference_count == 0:
-            recall = 0.0
-        else:
-            recall = overlapping_count / reference_count
-
-        f1_score = 2.0 * ((precision * recall) / (precision + recall + 1e-8))
-        return f1_score
+    def _get_minhash(self, text, num_perm=128):
+        # Tokenize text by splitting on whitespace or any preferred tokenizer
+        tokens = set([token.lower() for token in text.split() if len(token) > 1])
+        
+        # Create MinHash object with a number of permutations (hash functions)
+        m = MinHash(num_perm=num_perm)
+        
+        # Update the MinHash object with each token
+        for token in tokens:
+            m.update(token.encode('utf8'))
+        
+        return m
