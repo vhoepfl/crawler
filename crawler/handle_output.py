@@ -7,6 +7,7 @@ class TerminalOutput:
     def __init__(self, settings, folder, filename) -> None:
         self.dir = folder
         self.output_file_path = os.path.join(folder, filename)
+        self.html_file_path = 'all_pages_html.txt'
         
         self.settings = settings
 
@@ -29,20 +30,22 @@ class TerminalOutput:
         self.missing_title_and_date_count = 0
         self.total_count = 0
 
-        self.html_buffer = [''] * 10
-        self.scraped_text_buffer = [''] * 10
+        self.buffer_size = 10
+        self.html_buffer = [''] * self.buffer_size
+        self.scraped_text_buffer = [''] * self.buffer_size
+
 
     def save_html(self, soup, url):
         """
         Writes a soup html object to a file, using the url as filename
         """
-        filename = 'all_pages_html.txt'
         text = '\n--- Separator ---\n' + url + '\n' + str(soup)
-        self.html_buffer[self.total_count%10] = text
+        self.html_buffer[self.total_count%self.buffer_size] = text
         # Write buffer to file
-        if self.total_count%10 == 9: 
-            with open(os.path.join(self.dir, filename), 'a', encoding='utf-8') as fw:
+        if self.total_count%self.buffer_size == 9: 
+            with open(os.path.join(self.dir, self.html_file_path), 'a', encoding='utf-8') as fw:
                     fw.write(''.join(self.html_buffer))
+            self.html_buffer = ['']*self.buffer_size
         
 
     def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, author, volume):
@@ -136,7 +139,7 @@ class TerminalOutput:
         return True
 
 
-    def write_output(self, url, scraped_text, title, date, author, volume, percentage): 
+    def write_output(self, url, scraped_text, title, date, author, volume, percentage, flush=False): 
         """
         Appends the output to a file.
         Differents pages are put into a block of <begin-of-url> ...text <end-of-url>
@@ -145,12 +148,9 @@ class TerminalOutput:
         # Check quality thresholds
         write_text = False
         if self.filter_duplicates: 
-            import time
-            t0 = time.time()
             if self.get_quality_rating(percentage, scraped_text) and self.DuplicateFilter.check_new_article(scraped_text):
                 self.DuplicateFilter.add_article(scraped_text, url)
                 write_text = True
-                print(time.time() - t0)
         else: 
             if self.get_quality_rating(percentage, scraped_text): 
                 write_text = True
@@ -164,19 +164,27 @@ class TerminalOutput:
                     '\n<separate-parts>\n' + scraped_text + '\n<end-of-url>\n'
         else: 
             text = ''
-        self.scraped_text_buffer[self.total_count%10] = text
+        self.scraped_text_buffer[self.total_count%self.buffer_size] = text
         
         # Write buffer to file
-        if self.total_count%10 == 9: 
+        if self.total_count%self.buffer_size == 9: 
             with open(self.output_file_path, 'a', encoding="utf-8") as fw:
                 fw.write(''.join(self.scraped_text_buffer))
-
-                
+            self.scraped_text_buffer = ['']*self.buffer_size
+               
         # Adding linebreak to log, could be solved a lot cleaner
         logging.info(f"\n")
                 
                     
                
+    def flush_buffers(self): 
+        with open(self.output_file_path, 'a', encoding="utf-8") as fw:
+                fw.write(''.join(self.scraped_text_buffer))
+        self.scraped_text_buffer = ['']*self.buffer_size
+
+        with open(os.path.join(self.dir, self.html_file_path), 'a', encoding='utf-8') as fw:
+                    fw.write(''.join(self.html_buffer))
+        self.html_buffer = ['']*self.buffer_size
 
 
         

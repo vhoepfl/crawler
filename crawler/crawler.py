@@ -15,8 +15,7 @@ class Crawler:
         if self.playwright_mode:
             from playwright.sync_api import sync_playwright
             self.p = sync_playwright().start()
-            browser = self.p.chromium.launch(headless=False, proxy={'server': 'socks5://10.64.0.1:1080'})
-            self.page = browser.new_page()
+            self.browser = self.p.chromium.launch(headless=False, proxy={'server': 'socks5://10.64.0.1:1080'})
         else: 
             # Add proxies for use with VPN
             proxies = {'http': 'socks5h://10.64.0.1:1080',
@@ -49,9 +48,28 @@ class Crawler:
         """
         Iterates over queue, calling scraping and output functions
         """
-        while self.queue:
-            status, url, soup = self._scrape_single_page_from_queue()
+        browser_visit_count = 0
+        if self.playwright_mode: 
+            context = self.browser.new_context()
+            self.page = context.new_page()
 
+        while self.queue:
+            # re-init web browser each 100 visited pages (deletes cookies etc.)
+            if browser_visit_count == 100: 
+                if self.playwright_mode: 
+                    context.close()
+                    context = self.browser.new_context()
+                    self.page = context.new_page()
+                else: 
+                    proxies = {'http': 'socks5h://10.64.0.1:1080',
+                    'https': 'socks5h://10.64.0.1:1080'}
+                    self.session = requests.Session()
+                    self.session.proxies.update(proxies)
+                browser_visit_count = 0
+                print('INFO: Restarted browser session.')
+            browser_visit_count += 1
+            
+            status, url, soup = self._scrape_single_page_from_queue()
             if status:
                 self.OutputHandler.save_html(soup, url)
                 # Adding new links to queue
@@ -64,6 +82,8 @@ class Crawler:
                 self.OutputHandler.record_output(len(self.queue), url, text, percentage, title, date, date_fallback_flag, author, volume)
                 self.OutputHandler.write_output(url, text, title, date, author, volume, percentage)
 
+        # Write all buffers to files
+        self.OutputHandler.flush_buffers()
         if self.playwright_mode: 
             self.p.stop()
                 
@@ -74,7 +94,7 @@ class Crawler:
 
         try:
             if self.playwright_mode:
-                self.page.goto(url, timeout=60000)
+                self.page.goto(url, timeout=240000)
                 
                 # Scroll page
                 delay_time = self.settings['general']['delay']/50
@@ -210,13 +230,23 @@ class Crawler:
                         elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
                             name_values_for_attrib = tag.get(pattern['attrib'], [])
-                            if tag.name == pattern['tag'] and pattern['name'] in name_values_for_attrib: 
-                                return True
+                            if tag.name == pattern['tag']: 
+                                all_names_match = True
+                                for name in pattern['name'].split():
+                                    if name not in name_values_for_attrib: 
+                                        all_names_match = False
+                                if all_names_match:
+                                    return True
+
                             
                         else: # Only attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
                             name_values_for_attrib = tag.get(pattern['attrib'], [])
-                            if pattern['name'] in name_values_for_attrib: 
+                            all_names_match = True
+                            for name in pattern['name'].split():
+                                if name not in name_values_for_attrib: 
+                                    all_names_match = False
+                            if all_names_match:
                                 return True
                 return False
             
