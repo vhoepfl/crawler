@@ -22,19 +22,26 @@ class MinHashFilter:
         result = self.lsh.query(m)
         if result: 
             print('Found duplicate, discarding...')
-            logging.info(f"Removing duplicates - found probable overlap of with {result}")
+            logging.info(f"Deduplication - found probable overlap with {result}")
             return False
         return True
 
     def _get_minhash(self, text, num_perm=128):
         # Tokenize text by splitting on whitespace or any preferred tokenizer
-        tokens = set([token.lower() for token in text.split() if len(token) > 1])
+        tokens = [token.lower() for token in text.split() if len(token) > 1]
         
+        # Creating shingles/ngrams
+        n = 3
+        shingles = set()
+        for i in range(len(tokens) - n + 1):
+            shingle = ' '.join(tokens[i:i + n])  # Form a shingle of k words
+            shingles.add(shingle)
+
         # Create MinHash object with a number of permutations (hash functions)
         m = MinHash(num_perm=num_perm)
         
         # Update the MinHash object with each token
-        for token in tokens:
-            m.update(token.encode('utf8'))
+        for s in shingles:
+            m.update(s.encode('utf8'))
         
         return m
