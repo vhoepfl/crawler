@@ -29,8 +29,10 @@ class TerminalOutput:
         self.missing_date_count = 0
         self.missing_title_and_date_count = 0
         self.total_count = 0
-
-        self.buffer_size = 10
+        
+        self.write_count_html = 0
+        self.write_count_scraped = 0
+        self.buffer_size = 20
         self.html_buffer = [''] * self.buffer_size
         self.scraped_text_buffer = [''] * self.buffer_size
 
@@ -39,13 +41,17 @@ class TerminalOutput:
         """
         Writes a soup html object to a file, using the url as filename
         """
+        # Place text in first free field of buffer
         text = '\n--- Separator ---\n' + url + '\n' + str(soup)
-        self.html_buffer[self.total_count%self.buffer_size] = text
-        # Write buffer to file
-        if self.total_count%self.buffer_size == 9: 
+        self.html_buffer[self.write_count_html%self.buffer_size] = text
+
+        # Write buffer to file if current field is last 
+        if self.write_count_html%self.buffer_size == self.buffer_size-1: 
             with open(os.path.join(self.dir, self.html_file_path), 'a', encoding='utf-8') as fw:
                     fw.write(''.join(self.html_buffer))
-            self.html_buffer = ['']*self.buffer_size
+
+        # Go to next free field of buffer
+        self.write_count_html += 1
         
 
     def record_output(self, queue_len, url, scraped_text, percentage, title, date, date_fallback_flag, author, volume):
@@ -155,7 +161,7 @@ class TerminalOutput:
             if self.get_quality_rating(percentage, scraped_text): 
                 write_text = True
 
-
+        # Place text in current field
         if write_text: 
             text = '<begin-of-url>\n' + url + \
                     '\n<separate-parts>\n' + (title if title else '') + \
@@ -164,13 +170,15 @@ class TerminalOutput:
                     '\n<separate-parts>\n' + scraped_text + '\n<end-of-url>\n'
         else: 
             text = ''
-        self.scraped_text_buffer[self.total_count%self.buffer_size] = text
+        self.scraped_text_buffer[self.write_count_scraped%self.buffer_size] = text
         
         # Write buffer to file
-        if self.total_count%self.buffer_size == 9: 
+        if self.write_count_scraped%self.buffer_size == self.buffer_size-1: 
             with open(self.output_file_path, 'a', encoding="utf-8") as fw:
                 fw.write(''.join(self.scraped_text_buffer))
-            self.scraped_text_buffer = ['']*self.buffer_size
+
+        # Go to next field
+        self.write_count_scraped += 1
                
         # Adding linebreak to log, could be solved a lot cleaner
         logging.info(f"\n")
@@ -178,13 +186,15 @@ class TerminalOutput:
                     
                
     def flush_buffers(self): 
+        with open(os.path.join(self.dir, self.html_file_path), 'a', encoding='utf-8') as fw:
+                    fw.write(''.join(self.html_buffer[:self.write_count_html%self.buffer_size]))
+        self.html_buffer = ['']*self.buffer_size
+        
         with open(self.output_file_path, 'a', encoding="utf-8") as fw:
-                fw.write(''.join(self.scraped_text_buffer))
+                fw.write(''.join(self.scraped_text_buffer[:self.write_count_scraped%self.buffer_size]))
         self.scraped_text_buffer = ['']*self.buffer_size
 
-        with open(os.path.join(self.dir, self.html_file_path), 'a', encoding='utf-8') as fw:
-                    fw.write(''.join(self.html_buffer))
-        self.html_buffer = ['']*self.buffer_size
+        
 
 
         

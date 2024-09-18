@@ -23,7 +23,6 @@ def request_settings():
             if overwrite.strip() == 'y':
                 shutil.rmtree(dir)
                 os.makedirs(dir)#exist_ok=True
-                os.makedirs(os.path.join(dir, 'html_files'))
                 print(f'All data of this run saved under {os.path.abspath(dir)}\n')
                 break
 
