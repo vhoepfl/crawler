@@ -32,7 +32,7 @@ class TerminalOutput:
         
         self.write_count_html = 0
         self.write_count_scraped = 0
-        self.buffer_size = 10
+        self.buffer_size = 1
         self.html_buffer = [''] * self.buffer_size
         self.scraped_text_buffer = [''] * self.buffer_size
 

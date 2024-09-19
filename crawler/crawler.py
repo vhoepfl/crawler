@@ -123,7 +123,8 @@ class Crawler:
                 self.page.evaluate("""() => {
                         document.querySelectorAll('*').forEach(el => {
                             const style = window.getComputedStyle(el);
-                            const isVisible = style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+                             const isVisible = style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0' 
+                             && el.offsetWidth > 0 && el.offsetHeight > 0;
                             if (isVisible) {
                                 el.setAttribute('data-visible', 'true');
                             }
@@ -208,7 +209,8 @@ class Crawler:
                                 self.queue.add(full_link)
 
 
-    def _extract_text(self, soup):      
+    def _extract_text(self, soup):     
+         
         def get_check_pattern_func(valid_patterns:list): 
             """
             Returns a filter function, which matches it's tag input to the valid patterns
@@ -227,7 +229,7 @@ class Crawler:
                                 return True
                         elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = tag.get(pattern['attrib'], [])
+                            name_values_for_attrib = tag.get(pattern['attrib'], '').split()
                             if tag.name == pattern['tag']: 
                                 all_names_match = True
                                 for name in pattern['name'].split():
@@ -237,7 +239,7 @@ class Crawler:
                                     return True
                         else: # Only attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = tag.get(pattern['attrib'], [])
+                            name_values_for_attrib = tag.get(pattern['attrib'], '').split()
                             all_names_match = True
                             for name in pattern['name'].split():
                                 if name not in name_values_for_attrib: 
@@ -248,7 +250,7 @@ class Crawler:
             
             return check_pattern_func
         
-        def decompose_rec(tag, match_func, del_matches=False):
+        def decompose_tree(tag, match_func, del_matches=False):
             """
             Decomposes the bs4 soup: \n
             (del_matches = False)   Keep only matched tags, but with general structure intact \n
@@ -257,50 +259,56 @@ class Crawler:
             match func: A function checking whether a tag has one of the selected patterns - returns True or False
             del_matches: If True, all matching tags are deleted. If False, all matching tags are kept, any other deleted. 
             """
-            for c in list(tag.children): 
-                if isinstance(c, NavigableString): 
-                    c.replace_with('')
-                elif isinstance(c, Tag): 
-                    # Deleting matches from tree
-                    if del_matches: 
-                        if match_func(c): 
-                            c.decompose()
-                        elif c.find(match_func): 
-                            decompose_rec(c, match_func, del_matches)
-                    # Keep only matches in tree
+            def _decompose_rec(tag, match_func, del_matches, level): 
+                """
+                Leaves root intact, decomposes anything else recursively. 
+                """
+                for c in list(tag.children): 
+                    if isinstance(c, NavigableString): 
+                        c.replace_with('')
+                    elif isinstance(c, Tag): 
+                        # Deleting matches from tree
+                        if del_matches: 
+                            if match_func(c): 
+                                c.decompose()
+                            elif c.find(match_func): 
+                                _decompose_rec(c, match_func, del_matches, level+1)
+                        # Keep only matches in tree
+                        else: 
+                            if match_func(c): # c matches a pattern
+                                pass # Keep tag and children
+                            elif c.find(match_func): # descendants of c match patterns
+                                _decompose_rec(c, match_func, del_matches, level+1)
+                            else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
+                                c.decompose()
                     else: 
-                        if match_func(c): # c matches a pattern
-                            pass # Keep tag and children
-                        elif c.find(match_func): # descendants of c match patterns
-                            decompose_rec(c, match_func, del_matches)
-                        else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
+                        try: 
                             c.decompose()
+                        except Exception as e: 
+                            print(e)
 
-                else: 
-                    try: 
-                        c.decompose()
-                    except Exception as e: 
-                        print(e)
-            
-            if not tag.get_text(strip=True): # (This should not delete <br> as those are inline and thus protected where matched)
-                tag.clear() # Keeps root intact to avoid NoneType errors
+                if not level == 0: 
+                    if not tag.get_text(strip=True): # (This should not delete <br> as those are inline and thus protected where matched)
+                        tag.decompose() 
 
-        # Remove invisible or empty (=no text content) elements
-        to_decompose = set()
+            level = 0
+            _decompose_rec(tag, match_func, del_matches, level)
+
+
+        # Remove invisible elements
         if soup.find(lambda tag: tag.has_attr('data-visible')): # If playwright was used
-            for el in soup.find_all(lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
-                to_decompose.add(el) 
+            match_func = lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'
+            decompose_tree(soup, match_func, del_matches=True)
+        else: 
+            match_func = lambda tag: ('display: none' or 'visibility: hidden' or 'opacity: 0' or 'font-size:0px') in tag.get('style', '').lower()
+            decompose_tree(soup, match_func, del_matches=True)
 
-        for el in soup.find_all(True):
-            style = el.get('style', '').lower()
-            if 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
-                to_decompose.add(el)
-
-        for el in to_decompose:
-            el.decompose() 
-
+        # Remove all links without text and all images
+        match_func = lambda tag: tag.name == 'img' or (tag.name == 'a' and tag.get_text(strip=True) == '')
+        decompose_tree(soup, match_func, del_matches=True)
 
         complete_text = self._html_to_text(soup)
+
         extraction_settings = self.settings['text_extraction']
         patterns_include = extraction_settings['specific_tags_include']
         patterns_exclude = extraction_settings['specific_tags_exclude']
@@ -319,16 +327,16 @@ class Crawler:
         # Extract text by tags if settings contain specified tags
         if include_tags_specified: 
             include_match_func = get_check_pattern_func(patterns_include)
-            decompose_rec(soup, include_match_func)
+            decompose_tree(soup, include_match_func)
             tree_pruned = True
         if exclude_tags_specified: 
             exclude_match_func = get_check_pattern_func(patterns_exclude)
-            decompose_rec(soup, exclude_match_func, del_matches=True)
+            decompose_tree(soup, exclude_match_func, del_matches=True)
             tree_pruned = True
         # Extract text by <p> (html paragraphs)
         if extraction_settings['only_paragraphs']:
             include_match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}])
-            decompose_rec(soup, include_match_func)
+            decompose_tree(soup, include_match_func)
             tree_pruned = True
         # Extract text by paragraphs and headers
         elif extraction_settings['only_paragraphs_and_headers']:
@@ -339,7 +347,7 @@ class Crawler:
                                                 {'tag': 'h4', 'attrib': '', 'name': ''}, \
                                                 {'tag': 'h5', 'attrib': '', 'name': ''}, \
                                                 {'tag': 'h6', 'attrib': '', 'name': ''}])
-            decompose_rec(soup, include_match_func)
+            decompose_tree(soup, include_match_func)
             tree_pruned = True
         if tree_pruned: 
             text = self._html_to_text(soup)
@@ -480,7 +488,7 @@ class Crawler:
         
         h = html2text.HTML2Text()
         h.ignore_links = False
-        h.ignore_images = False
+        h.ignore_images = True
         h.single_line_break = False
         h.asterisk_emphasis = True
         h.body_width = 0
@@ -488,5 +496,6 @@ class Crawler:
         h.ignore_tables = True
         h.escape_snob = True
         h.dash_unordered_list = True
-
+        h.protect_links = True
+        #print(soup)
         return text_cleanup(h.handle(str(soup)))
