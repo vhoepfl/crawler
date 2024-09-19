@@ -41,8 +41,8 @@ def keep_settings_updated():
             new_ignored_pages = re.sub(r'(/|\\)', r'\\\1', '|'.join(actualized_settings['general']['pages_to_be_ignored']))
             if new_ignored_pages != old_ignored_pages: 
                 crawler.ignored_pages = new_ignored_pages
-                logging.warning(f'Using new settings: Ignoring "{new_ignored_pages}" instead of "{old_ignored_pages}"')
-                print(f'Using new settings: Ignoring "{new_ignored_pages}" instead of "{old_ignored_pages}"')
+                logging.warning(f'Using new settings: Ignoring "{new_ignored_pages}" instead of "{old_ignored_pages}"\n')
+                print(f'Using new settings: Ignoring "{new_ignored_pages}" instead of "{old_ignored_pages}"\n')
                 # Delete all unwanted elements from queue
                 del_count = 0
                 for el in list(crawler.queue): 
@@ -50,7 +50,7 @@ def keep_settings_updated():
                         crawler.queue.discard(el)
                         del_count += 1
                 logging.warning(f'Deleted {del_count} elements from queue\n')
-                print(f'Deleted {del_count} elements from queue')
+                print(f'Deleted {del_count} elements from queue\n')
 
 reload_thread = threading.Thread(target=keep_settings_updated)
 reload_thread.daemon = True

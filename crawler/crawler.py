@@ -15,7 +15,7 @@ class Crawler:
         if self.playwright_mode:
             from playwright.sync_api import sync_playwright
             self.p = sync_playwright().start()
-            self.browser = self.p.chromium.launch(headless=False, proxy={'server': 'socks5://10.64.0.1:1080'})
+            self.browser = self.p.chromium.launch(headless=True, proxy={'server': 'socks5://10.64.0.1:1080'})
         else: 
             # Add proxies for use with VPN
             proxies = {'http': 'socks5h://10.64.0.1:1080',
@@ -55,7 +55,7 @@ class Crawler:
 
         while self.queue:
             # re-init web browser each 100 visited pages (deletes cookies etc.)
-            if browser_visit_count == 100: 
+            if browser_visit_count == 50: 
                 if self.playwright_mode: 
                     context.close()
                     context = self.browser.new_context()
@@ -66,7 +66,7 @@ class Crawler:
                     self.session = requests.Session()
                     self.session.proxies.update(proxies)
                 browser_visit_count = 0
-                print('INFO: Restarted browser session.')
+                print('INFO: Restarted browser session.\n')
             browser_visit_count += 1
             
             status, url, soup = self._scrape_single_page_from_queue()
@@ -91,7 +91,6 @@ class Crawler:
     def _scrape_single_page_from_queue(self): 
         url = self.queue.pop()
         self.visited.add(url)
-
         try:
             if self.playwright_mode:
                 self.page.goto(url, timeout=240000)
@@ -226,7 +225,6 @@ class Crawler:
                         if pattern['tag'] and not pattern['attrib']: # Only tag specified
                             if tag.name == pattern['tag']: 
                                 return True
-                            
                         elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
                             name_values_for_attrib = tag.get(pattern['attrib'], [])
@@ -237,8 +235,6 @@ class Crawler:
                                         all_names_match = False
                                 if all_names_match:
                                     return True
-
-                            
                         else: # Only attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
                             name_values_for_attrib = tag.get(pattern['attrib'], [])
@@ -252,81 +248,130 @@ class Crawler:
             
             return check_pattern_func
         
-        def decompose_rec(tag, match_func, only_innermost=False):
+        def decompose_rec(tag, match_func, del_matches=False):
             """
-            Decomposes the bs4 soup to keeps only matched tags, but with general structure intact
+            Decomposes the bs4 soup: \n
+            (del_matches = False)   Keep only matched tags, but with general structure intact \n
+            (del_matches = True)    Delete all matched tags
             Args: 
-            pattern (list of dict): HTML tag patterns saved as a dict with the keys 'tag', 'attrib' and 'name'. 
-                                    Valid subsets: (tag), (attrib, name), (tag, attrib, name)
-            only_innermost (bool):  If True, matches are only checked for innermost tags, content of all other tags is decomposed. 
+            match func: A function checking whether a tag has one of the selected patterns - returns True or False
+            del_matches: If True, all matching tags are deleted. If False, all matching tags are kept, any other deleted. 
             """
             for c in list(tag.children): 
                 if isinstance(c, NavigableString): 
                     c.replace_with('')
                 elif isinstance(c, Tag): 
-                    if match_func(c): # c matches a pattern
-                        if only_innermost: 
-                            if not any(isinstance(el, Tag) for el in c.children): # is innermost
-                                pass # Keep tag and children
-                            else: 
-                                decompose_rec(c, match_func, only_innermost=True)
-                        else: 
+                    # Deleting matches from tree
+                    if del_matches: 
+                        if match_func(c): 
+                            c.decompose()
+                        elif c.find(match_func): 
+                            decompose_rec(c, match_func, del_matches)
+                    # Keep only matches in tree
+                    else: 
+                        if match_func(c): # c matches a pattern
                             pass # Keep tag and children
-                    elif c.find(match_func): # descendants of c match patterns
-                        decompose_rec(c, match_func)
-                    else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
-                        c.decompose()
+                        elif c.find(match_func): # descendants of c match patterns
+                            decompose_rec(c, match_func, del_matches)
+                        else: # c and descendants don't match patterns (due to recursive nature: parents also don't match patterns)
+                            c.decompose()
 
                 else: 
                     try: 
                         c.decompose()
                     except Exception as e: 
                         print(e)
+            
+            if not tag.get_text(strip=True): # (This should not delete <br> as those are inline and thus protected where matched)
+                tag.clear() # Keeps root intact to avoid NoneType errors
 
         # Remove invisible or empty (=no text content) elements
-        to_decompose = []
-        if soup.find_all(lambda tag: tag.has_attr('data-visible')): # If playwright was used
-            for el in soup.find_all(lambda tag: (not tag.get_text(strip=True)) or not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
-                to_decompose.append(el) 
+        to_decompose = set()
+        if soup.find(lambda tag: tag.has_attr('data-visible')): # If playwright was used
+            for el in soup.find_all(lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'):
+                to_decompose.add(el) 
+
         for el in soup.find_all(True):
             style = el.get('style', '').lower()
-            if (not el.get_text(strip=True)) or 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
-                to_decompose.append(el)
+            if 'display: none' in style or 'visibility: hidden' in style or 'opacity: 0' in style:
+                to_decompose.add(el)
+
         for el in to_decompose:
             el.decompose() 
 
-        complete_text = self._html_to_text(str(soup))
+
+        complete_text = self._html_to_text(soup)
         extraction_settings = self.settings['text_extraction']
-        valid_patterns = extraction_settings['specific_tags']
+        patterns_include = extraction_settings['specific_tags_include']
+        patterns_exclude = extraction_settings['specific_tags_exclude']
 
-        tags_specified = False
-        for el in valid_patterns: 
+        include_tags_specified = False
+        exclude_tags_specified = False
+        for el in patterns_include: 
             if el['tag'] or el['attrib'] or el['name']: 
-                tags_specified = True
+                include_tags_specified = True
                 break
+        for el in patterns_exclude: 
+            if el['tag'] or el['attrib'] or el['name']: 
+                exclude_tags_specified = True
+                break
+        tree_pruned = False
         # Extract text by tags if settings contain specified tags
-        if tags_specified: 
-            match_func = get_check_pattern_func(valid_patterns)
-            decompose_rec(soup, match_func)
-            text = self._html_to_text(str(soup))
-        # Extract *innermost* text by <p> (html paragraphs)
-        elif extraction_settings['only_paragraphs']:
-            match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}])
-            decompose_rec(soup, match_func, only_innermost=True)
-            text = self._html_to_text(str(soup))
-        # Fallback option: Extract all text
-        else:
+        if include_tags_specified: 
+            include_match_func = get_check_pattern_func(patterns_include)
+            decompose_rec(soup, include_match_func)
+            tree_pruned = True
+        if exclude_tags_specified: 
+            exclude_match_func = get_check_pattern_func(patterns_exclude)
+            decompose_rec(soup, exclude_match_func, del_matches=True)
+            tree_pruned = True
+        # Extract text by <p> (html paragraphs)
+        if extraction_settings['only_paragraphs']:
+            include_match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}])
+            decompose_rec(soup, include_match_func)
+            tree_pruned = True
+        # Extract text by paragraphs and headers
+        elif extraction_settings['only_paragraphs_and_headers']:
+            include_match_func = get_check_pattern_func([{'tag': 'p', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h1', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h2', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h3', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h4', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h5', 'attrib': '', 'name': ''}, \
+                                                {'tag': 'h6', 'attrib': '', 'name': ''}])
+            decompose_rec(soup, include_match_func)
+            tree_pruned = True
+        if tree_pruned: 
+            text = self._html_to_text(soup)
+        else: # Fallback option: Extract all text
             text = complete_text
-
         percentage = round((len(text) / len(complete_text) if len(complete_text) > 0 else 1)*100)
 
         return complete_text, text, percentage
 
 
     def _extract_metadata(self, soup):
+
         def check_if_match(settings):
+
+            def find_in_json_rec(d, target_key): 
+                if isinstance(d, dict):
+                    for key, value in d.items():
+                        if key == target_key:
+                            return value
+                        elif isinstance(value, dict):
+                            result = find_in_json_rec(value, target_key)
+                            if result:
+                                return result
+                        elif isinstance(value, list):
+                            for item in value:
+                                result = find_in_json_rec(item, target_key)
+                                if result:
+                                    return result
+                return None
+            
             # Extraction from yoast seo script 
-            if 'yoast_seo_name' in settings.keys() and settings['yoast_seo_name']: 
+            if 'json_pattern' in settings.keys() and settings['json_pattern']: 
                 tags = soup.find_all(settings['tag'])
                 yoast_text = ''
                 for tag in tags:
@@ -340,9 +385,7 @@ class Crawler:
 
                 if yoast_text: 
                     yoast_data = json.loads(yoast_text)
-                    for item in yoast_data.get('@graph', []):
-                        if settings['yoast_seo_name'] in item:
-                            return item.get(settings['yoast_seo_name'])
+                    return find_in_json_rec(yoast_data, settings['json_pattern'])
             else: 
                 # Robust extraction from normal html
                 if settings['tag']:
@@ -405,9 +448,9 @@ class Crawler:
         return raw_base_url, full_pattern # pattern to match website
 
 
-    def _html_to_text(self, html_string): 
+    def _html_to_text(self, soup): 
         """
-        Converts the html_string to plain text using html2text. 
+        Converts the soup to plain text using html2text. 
         Creates a new html2text object each time to reduce the impact of a html2text bug, 
         where part of the content is accumulated at the end of the Markdown text. 
         *markdownify* would be an alternative, but html2text output is more similar to the website formatting
@@ -417,6 +460,7 @@ class Crawler:
             Can be used to clean the Markdown output of html2text. 
             """
             # Cleanup spaces
+            text = re.sub(r'---LINE_BREAK_PLACEHOLDER---', '\n', text)
             text = re.sub(r'[\u200B-\u200D\uFEFF]', ' ', text)# Remove zero-width-spaces
             text = re.sub(r'^\s+\n', '', text) # Remove spaces at start of text
             #text = re.sub(r'[^\S\r\n]*\n[^\S\r\n]*',  '\n', text) # Summarize leading spaces + linebreak + trailing spaces as single linebreak
@@ -445,4 +489,4 @@ class Crawler:
         h.escape_snob = True
         h.dash_unordered_list = True
 
-        return text_cleanup(h.handle(html_string))
+        return text_cleanup(h.handle(str(soup)))
