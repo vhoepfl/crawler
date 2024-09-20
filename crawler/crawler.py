@@ -229,7 +229,8 @@ class Crawler:
                                 return True
                         elif pattern['tag'] and pattern['attrib']: # Tag and attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = tag.get(pattern['attrib'], '').split()
+                            name_values_for_attrib = tag.get(pattern['attrib'], '')
+                            name_values_for_attrib = name_values_for_attrib if isinstance(name_values_for_attrib, list) else name_values_for_attrib.split()
                             if tag.name == pattern['tag']: 
                                 all_names_match = True
                                 for name in pattern['name'].split():
@@ -239,7 +240,8 @@ class Crawler:
                                     return True
                         else: # Only attrib and name specified
                             assert pattern['name'], "If an 'attrib' is used as selector, please also add a value for 'name'!"
-                            name_values_for_attrib = tag.get(pattern['attrib'], '').split()
+                            name_values_for_attrib = tag.get(pattern['attrib'], '')
+                            name_values_for_attrib = name_values_for_attrib if isinstance(name_values_for_attrib, list) else name_values_for_attrib.split()
                             all_names_match = True
                             for name in pattern['name'].split():
                                 if name not in name_values_for_attrib: 
@@ -453,6 +455,7 @@ class Crawler:
         full_pattern = r'(https?://)?' + re.escape(part_url)
         print('base url pattern: ', full_pattern)
 
+        return 'https://web.archive.org/web/20230501054741/https://fr.novopress.info/', '(https?://)?web.archive.org/web/\d+/https://fr.novopress.info/'
         return raw_base_url, full_pattern # pattern to match website
 
 

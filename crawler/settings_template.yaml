@@ -35,7 +35,7 @@ metadata:
     # Siehe date für Details
 
 
-  volume: 
+  volume: #! Aktuell nicht Teil des Ausgabetexts!
     extract_volume: False # Jedes volume aus Titel (nicht Text) extrahiert
 
 
