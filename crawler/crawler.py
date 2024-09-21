@@ -455,7 +455,7 @@ class Crawler:
         full_pattern = r'(https?://)?' + re.escape(part_url)
         print('base url pattern: ', full_pattern)
 
-        return 'https://web.archive.org/web/20230501054741/https://fr.novopress.info/', '(https?://)?web.archive.org/web/\d+/https://fr.novopress.info/'
+        #return 'https://web.archive.org/web/20230501054741/https://fr.novopress.info/', '(https?://)?web.archive.org/web/\d+/https://fr.novopress.info/'
         return raw_base_url, full_pattern # pattern to match website
 
 
