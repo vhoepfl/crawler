@@ -19,7 +19,7 @@ Der Crawler nimmt eine Startseite als Eingabe, ausgehend von welcher alle Seiten
 
 ## Setup
 - Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python 3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
-`pip install pyyaml requests bs4 html2text`
+`pip install pyyaml requests bs4 html2text datasketch`
 
 - Playwright kann mit `pip install playwright` installiert werden. <br> 
 Anschließend können dann verschiedene Browser heruntergeladen werden mit `playwright install`. <br>
