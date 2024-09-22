@@ -256,7 +256,7 @@ Auf welche Weise wird der Websitentext extrahiert?
           attrib: class
           name: post_item_single
       ```
-  **Anmerkung:** <br>
+  - **Anmerkung:** <br>
         Für `name` können **ein oder mehrere Elemente** angegeben werden : <br>
         Sowohl <br>`name: post_item_single` <br> als auch (wie im HTML jeweils durch Leerzeichen getrennt) <br>
         `name: post_item_single post_type_post post_format_ ` <br>funktionieren beide. <br>
