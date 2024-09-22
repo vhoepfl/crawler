@@ -2,6 +2,36 @@
 
 Der Crawler nimmt eine Startseite als Eingabe, ausgehend von welcher alle Seiten der Website durchlaufen werden. Dabei wird jede einzelne Seite zum einen als HTML-Datei abgespeichert, zum anderen wird der Text auf der Website je nach gewählten Einstellungen bereinigt und zusammen mit einigen Metadaten in eine .txt-Datei gespeichert. 
 
+### Inhaltsverzeichnis: 
+  <hr>
+
+- [Setup](#setup)<br>
+- [Aktuelle Limits](#aktuelle-limits) <br>
+- [Dynamisch generierte Webseiten](#dynamisch-generierte-websites)<br>
+- [Visualisierung](#visualisierung)<br>
+- [Timeouts/Verbindungsabbruch](#timeoutsverbindungsabbruch)<br>
+- [Ausgabe](#ausgabe)<br>
+- [Einstellungen](#einstellungen)
+<hr>
+<br>
+
+
+
+## Setup
+- Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python 3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
+`pip install pyyaml requests bs4 html2text`
+
+- Playwright kann mit `pip install playwright` installiert werden. <br> 
+Anschließend können dann verschiedene Browser heruntergeladen werden mit `playwright install`. <br>
+Details auf der [playwright-Website](https://playwright.dev/python/docs/intro). 
+
+- Darüber hinaus müssen die Dateien aus diesem github repository heruntergeladen werden. Dies geht entweder per Download über den Browser, oder idealerweise - wenn `git` installiert ist - indem im Terminal `git clone https://github.com/vhoepfl/crawler.git` ausgeführt wird. 
+
+- Der Code kann anschließend in einem Terminal mittels ```python crawler/run_crawler.py``` ausführt . 
+
+Dann beginnt ein hoffentlich relativ selbsterklärender Abfrageprozess, in welchem der gewünschte Speicherordner sowie die Zielwebsite eingegeben werden können. <br>
+Darüber hinaus wird im Speicherordner eine `settings.yaml`-Datei angelegt, in welcher vor Beginn die gewünschten Einstellungen für den Crawler angepasst werden können -  mehr Infos hierzu stehen im [letzten Teil dieses Texts](#einstellungen). 
+
 ## Aktuelle Limits
 Wenn die gewählte Website CAPTCHAS oder ähnliche Maßnahmen verwendet, um automatisierte Zugriffe zu blockieren, funktioniert der Crawler zwar, kann allerdings keinen relevanten Text extrahieren und bricht nach kurzer Zeit ab, da keine neuen Links mehr gefunden werden können. 
 Je nach CAPTCHA-Typ könnte es möglich sein, das automatisch zu umgehen. Ich gehe allerdings davon aus, dass es am Ende am einfachsten wäre, playwright zu verwenden und dort die CAPTCHAS von Hand zu lösen - falls dieses Problem tatsächlich aufkommen sollte (*nach Erfahrung bei über 50 Seiten nicht*), würde ich mich hier nochmal genauer informieren.<br>
@@ -30,23 +60,6 @@ Anschließend scrollt der Browser vollständig nach unten, um alle dynamisch gen
 [`delay`](#general) regelt dabei die Zeitspanne, welche abgewartet wird, um der Seite Zeit zu geben zum Laden neuer Elemente. 
 
 Darüber hinaus können in diesem Modus verschiedene Buttons festgelegt werden, auf welche automatisch geklickt wird (z.B. für *Afficher plus*, Details siehe unter [general](#general))
-
-
-## Setup
-Um den Crawler auszuführen, muss eine aktuelle python-Version installiert sein (getestet mit python3.10). Außerdem sind einige libraries notwendig, die wie folgt installiert werden können: 
-`pip install pyyaml requests bs4 html2text`
-
-Playwright kann mit `pip install playwright` installiert werden. <br> 
-Anschließend können dann verschiedene Browser heruntergeladen werden mit `playwright install`. <br>
-Details auf der [playwright-Website](https://playwright.dev/python/docs/intro). 
-
-Darüber hinaus müssen die Dateien aus diesem github repository heruntergeladen werden. Dies geht entweder per Download über den Browser, oder idealerweise - wenn `git` installiert ist - indem im Terminal `git clone https://github.com/vhoepfl/crawler.git` ausgeführt wird. 
-
-Der Code kann anschließend in einem Terminal ausgeführt werden, indem man mit `cd crawler` in das repository geht und ```python crawler\run_crawler.py``` ausführt . 
-
-Dann beginnt ein hoffentlich relativ selbsterklärender Abfrageprozess, in welchem der gewünschte Speicherordner sowie die Zielwebsite eingegeben werden können. 
-Darüber hinaus wird im Speicherordner eine `settings.yaml`-Datei angelegt, in welcher vor Beginn die gewünschten Einstellungen für den Crawler angepasst werden können -  mehr Infos hierzu stehen im [letzten Teil dieses Texts](#einstellungen). 
-
 
 ## Visualisierung
 
@@ -83,30 +96,34 @@ Falls die Seite überhaupt nicht geladen werden kann, wird eine Fehlermeldung wi
 ```
 Unknown exception on *URL*: Page.goto: Timeout 240000ms exceeded.
 ```
-Falls die Seite zwar geladen werden kann, aber keine gültige Antwort gibt, wird sie einfach als leere Seite ohne Text geladen (und kann mit dem Filter *word_count_limit* ignoriert werden)
+Falls die Seite zwar geladen werden kann, aber keine gültige Antwort gibt, wird sie einfach als leere Seite ohne Text geladen (und kann mit dem Filter [*word_count_limit*](#file) ignoriert werden)
 
 ## Ausgabe: 
 Der Crawler schreibt in dem neu erstellten Ordner Daten in 4 Dateien: 
-- `all_pages_html.txt`: Der HTML-Code aller besuchten Seiten (unabhängig davon, ob Text extrahiert wurde) kombiniert in einer txt-Datei getrennt durch `--- Separator ---`. 
-- `console_output.log`: Eine Version der Ausgabe im Terminal, die die besuchten URLs und den Erfolg der jeweiligen Textextraktion notiert. 
-- `scraped_pages_*Seitenname*.txt`: Die extrahierten Metadaten und der Webseitentext. 
-- `settings.yaml`: Die Datei mit den Einstellungen, die zu Beginn bearbeitet werden kann. 
+- `all_pages_html.txt`: <br>
+Der HTML-Code aller besuchten Seiten (unabhängig davon, ob Text extrahiert wurde) kombiniert in einer txt-Datei und getrennt durch `--- Separator ---`. 
+- `console_output.log`: <br>
+Eine Log, das die besuchten URLs und den Erfolg der jeweiligen Textextraktion notiert. 
+- `scraped_pages_*Seitenname*.txt`: <br>
+Die extrahierten Metadaten und der Webseitentext. 
+- `settings.yaml`: <br>
+Die Datei mit den Einstellungen für den Crawler, kann zu Beginn bearbeitet werden. 
 
 
 ## Einstellungen
 Im Speicherordner wird automatisch eine *settings.yaml*-Datein angelegt. Dort können zu Beginn die Einstellungen für den Scraping-Prozess festgelegt werden. <br>
 Im Folgenden werden die verschiedenen Optionen genauer erklärt: 
 ### ```general```
-- `playwright: False`
+- `playwright: False` <br>
 Falls `True`, wird ein playwright-Browser anstatt requests verwendet. Dies erhöht Websiteladezeiten signifikant, ist aber notwendig, um dynamisch generierte Websites korrekt zu scrapen oder Buttons zu klicken, da ansonsten nur ein Bruchteil der Seite geladen ist und entsprechend gescraped wird. 
-- `delay: 0` 
+- `delay: 2000` <br>
 Bei Verwendung von Playwright, ansonsten ignoriert: Wartezeit (in ms) zwischen zwei Aufrufen. Idealerweise lang genug, um die Seite vollständig zu laden, aber dabei so kurz wie möglich. 
-- `click_buttons`
+- `click_buttons`<br>
 Hier können mehrere Buttons angegeben werden, auf welche automatisch geklickt wird. <br>
 Anzugeben entweder als `button.Klasse` (da jeder button immer `button` als tag hat) oder auch nur `.Klasse`. <br>
-Beispiel: <br>
-**`button.eael-load-more-button`** für `<button class="eael-load-more-button hide-load-more" id="eael-load-more-btn-3f26d46"... `<br><br>
-Bitte immer nur eine der Klassen angeben! <br>
+Beispiel:<br>
+`button.eael-load-more-button` <br> für <br> `<button class="eael-load-more-button hide-load-more" id="eael-load-more-btn-3f26d46"... `<br>
+Bitte immer nur eine der Klassen angeben! <br><br>
 Bitte als Liste angeben, d.h. 
   ```
   click_buttons: 
@@ -114,23 +131,29 @@ Bitte als Liste angeben, d.h.
     - button.close-popup
     - ...
   ```
-- `pages_to_be_ignored`
+- `pages_to_be_ignored` <br>
   Hier können URLS oder Teile davon angegeben werden, welche ignoriert werden sollen. <br>
-  Es kann Regex verwendet werden, d.h.  `https://argosfrance.org/\d+` ignoriert z.B. `https://argosfrance.org/1`, `https://argosfrance.org/2`, `https://argosfrance.org/10` usw. 
-  Außerdem reicht es, einzelne Wörter anzugeben, um jede URL auszuschließen, die diese Wörter enthält. 
-  So blockiert `#comments` z.B. jede URL, die dieses Wort enthält, also bespielsweise alle Kommentarseiten zu einem Artikel. 
+  Es kann Regex verwendet werden, d.h.  `https://argosfrance.org/\d+` ignoriert z.B. `https://argosfrance.org/1`, `https://argosfrance.org/2`, `https://argosfrance.org/10` usw. <br>
+  Außerdem reicht es, einzelne Teile einer URL anzugeben, um jede URL auszuschließen, die dieses Wort enthält. 
+  So blockiert 
+    ```
+    pages_to_be_ignored: 
+      - #comments
+    ``` 
+    z.B. jede URL, die '#comments' enthält, also bespielsweise alle Kommentarseiten zu einem Artikel. 
 
-  Da Regex `\` und `/` als Sonderzeichen interpretiert, müssen diese normalerweise escaped werden. Dies passiert hier automatisch, es kann einfach eine URL oder Teil-UR n die *settings*-Datei kopiert werden und mit verschiedenen Regex-wildcards wie `.*`kombiniert werden. <br><br>
-  Bitte die verschiedenen Wörter in Form einer Liste angeben (Beispiel siehe **click-buttons**)! <br>
+  Da Regex `\` und `/` als Sonderzeichen interpretiert, müssen diese normalerweise escaped werden. Dies passiert hier automatisch, es kann einfach eine URL oder Teil-UR n die *settings*-Datei kopiert werden und mit verschiedenen Regex-wildcards wie `.*`, `\d+` o.ä. kombiniert werden. <br><br>
+  **Bitte die verschiedenen Wörter in Form einer Liste angeben! <br>(Beispiel siehe `click-buttons`)** <br>
 
-  **Bei dieser Option (und nutr dort) können zur `settings.yaml`-Datei auch noch weitere Wörter hinzugefügt werden, während der Crawler läuft.** Einmal pro Minute wird kontrolliert, ob sich neue Elemente in dieser Liste befinden. 
+  **Bei dieser Option (und nur dort) können zur `settings.yaml`-Datei auch noch weitere Wörter hinzugefügt werden, während der Crawler läuft.** <br>
+  Einmal pro Minute wird kontrolliert, ob sich neue Elemente in dieser Liste befinden. 
   Falls ja, werden diese URLs zukünftig blockiert und alle entsprechenden URLs aus der Warteschlange gelöscht. 
 
 
 ### ```metadata```
 - #### ```date```
-  - `use_fallback_method: True`
-  Die *fallback method* kann verwendet werden, falls der `head` im HTML-Code der Website kein Datumselement enthält. Falls diese Option auf `True` gesetzt ist, wird dann der vollständige Text der Website nach einem datumsähnlichen string durchsucht. <br><br>
+  - `use_fallback_method: False` <br>
+  Die *fallback method* kann verwendet werden, falls kein eindeutiges HTML-tag für das Datum existiert. Falls diese Option auf `True` gesetzt ist, wird dann der vollständige Text der Website nach einem datumsähnlichen string durchsucht. <br><br>
   **Anmerkung:** 
   Dies kann falsche Ergebnisse produzieren, falls auf der Website ein beliebiges anderes Datum über dem oder statt des Artikeldatums steht. Aus diesem Grund wird ein solches Datum mittels `⚠` im Terminaloutput und in Log hervorgehoben (allerdings nicht im endgültigen Textoutput). 
   Hier wäre es möglich, im Nachhinein zu kontrollieren, ob die Datümer in einem zeitlich plausiblen Rahmen liegen. 
@@ -150,15 +173,15 @@ Bitte als Liste angeben, d.h.
       name: article:published_time
       ```
 
-    Alternativ reicht auch nur das tag: <br>
-    **Beispiel:** <br>
-    `<date_published>05 juillet 2024</date_published>` <br>
+    **Alternativ reicht auch nur das tag:**<br>
+      `<date_published>05 juillet 2024</date_published>` <br>
       ```
       tag: date_published
+      attrib:
+      name:
       ```
 
-    Falls das Datumselement selbst als `name`-Wert eines `attrib` vorliegt, reicht es, `tag`und `attrib` anzugeben. 
-    **Beispiel:** <br>
+    **Falls das Datumselement selbst als `name`-Wert eines `attrib` vorliegt,** <br>reicht es, `tag`und `attrib` anzugeben. <br>
     `<span datetime="2009-05-28T17:51:00+02:00"` <br>
       ```
       tag: span
@@ -173,12 +196,12 @@ Bitte als Liste angeben, d.h.
   - Äquivalent zu [date](#date)
 
 - #### `volume`
-  **Anmerkung: Da *Volume* sehr fehleranfällig ist, wird das Ergebnis aktuell nicht in der fertigen Ausgaben gespeichert!**
-
+  **Anmerkung: Da *Volume* sehr fehleranfällig ist, wird das Ergebnis aktuell nicht in der fertigen Ausgaben gespeichert!** 
+  <br><br>
   Da scheinbar nur selten bis nie ein eigenes HTML-Element für das volume existiert, wird auf eine ähnliche Methode wie bei der *fallback method* für das Datum zurückgegriffen: Jede volume-ähnliche Nummerierung (z.B. `N. <Zahl>`, `Vol. <Zahl>`, `Éd. <Zahl>` - der Punkt ist dabei optional ) wird als volume interpretiert und gespeichert. <br>
   Das Format aus einer Zahl und einem Punkt, z.B. `1.`, wird aktuell nicht als volume erkannt, da hier die Fehleranfälligkeit vermutlich zu hoch ist. 
 
-  - `extract_volume: True`
+  - `extract_volume: False`
       Falls auf `True` gesetzt, wird ein volume auf die oben beschriebene Weise extrahiert. 
 
 
@@ -208,19 +231,19 @@ Auf welche Weise wird der Websitentext extrahiert?
           name: 
         - ...
       ```
-    **Nach jeder Kombination (tag, attrib, name) wird dabei unabhängig von den anderen gesucht.** <br><br>
+    **Nach jeder Kombination (tag, attrib, name) wird dabei unabhängig von den anderen gesucht:** 
+    Wenn auch nur eine der Kombinationen aus (tag, attrib, name) auf ein HTML-tag passt, wird dieses Teil der Ausgabe.<br><br>
   
   - **Es ist nicht notwendig, für alle drei Elemente einen Wert         anzugeben.**
-      ```
-      <article id="post-52228" class="post_item_single post_type_post post_format_ post-52228 post type-post status-publish format-standard has-post-thumbnail hentry category-communiques">
-      ``` 
+      `<article id="post-52228" class="post_item_single post_type_post post_format_ post-52228 post type-post status-publish format-standard has-post-thumbnail hentry category-communiques">` <br>
     wird also von allen der folgenden Kriterien erkannt: 
       ```
       specific_tags: 
         - tag: article
           attrib: class
-          name: post_item_single # Oder auch ein oder mehrere andere von *post_type_post, post_format_ post-52228, ...*
+          name: post_item_single
       ```
+
       ```
       specific_tags: 
         - tag: article
@@ -231,9 +254,14 @@ Auf welche Weise wird der Websitentext extrahiert?
       specific_tags: 
         - tag: 
           attrib: class
-          name: post_item_single # Oder auch ein oder mehrere andere von *post_type_post, post_format_ post-52228, ...*
+          name: post_item_single
       ```
-  
+  **Anmerkung:** <br>
+        Für `name` können **ein oder mehrere Elemente** angegeben werden : <br>
+        Sowohl <br>`name: post_item_single` <br> als auch (wie im HTML jeweils durch Leerzeichen getrennt) <br>
+        `name: post_item_single post_type_post post_format_ ` <br>funktionieren beide. <br>
+        Dabei muss in einem HTML-tags *jedes der Elemente* vorhanden sein, damit es Teil der Ausgabe wird. 
+
 
  - `specific_tags_exclude`: Mittels dieser Option können spezifische Elemente oder Attribute festgelegt werden, *aus welchen KEIN Text extrahiert wird* - alle angebenen Elemente werden ignoriert. 
     - Verwendbar zum Beispiel für Impressumtext, oder für Links zu Social Media. <br>
@@ -241,29 +269,29 @@ Auf welche Weise wird der Websitentext extrahiert?
 
   <br>  
 
-  **Es kann sein, dass innerhalb einer Website kein kohärentes System für die Strukturierung der Seite existiert**  - beispielsweise indem mehrere unterschiedliche Werte für `name` wie *article-iliade* und *articleiliade* parallel verwendet werden. In diesem Fall wäre es wichtig, alle Optionen anzugeben, da sonst der Text einiger Seiten relativ spurlos ignoriert wird. Die einzige Möglichkeit, dies festzustellen, ist zum einen, mehrere Seiten aus verschiedenen Kategorien zu durchsuchen und alle relevanten Formate zu notieren, und zum anderen manuell die logging-Datei durchzugehen und für Dateien mit auffällig niedrigen *percentage*-Werten zu kontrollieren, ob hier ein anderes Format verwendet wird. 
+  **Es kann sein, dass innerhalb einer Website kein kohärentes System für die Strukturierung der Seite existiert**  - beispielsweise indem mehrere unterschiedliche Werte für `name` wie *article-iliade* und *articleiliade* parallel verwendet werden. In diesem Fall wäre es wichtig, alle Optionen anzugeben, da sonst der Text einiger Seiten relativ spurlos ignoriert wird. <br>Die einzige Möglichkeit, dies festzustellen, ist zum einen, zuvor mehrere Seiten der Webseite zu durchsuchen und alle relevanten Formate zu notieren, und zum anderen manuell die logging-Datei durchzugehen und für Dateien mit auffällig niedrigen *percentage*-Werten zu kontrollieren, ob hier ein anderes Format verwendet wird. 
 
 <br>
 
 ### `output`
 - #### `console`
-  - `verbose`
+  - `verbose` <br>
   Falls `True`, werden während des crawlen zusätzliche Infos ausgegeben
-  - `print_one_per: 1`
-  Zahl *n* von 1 bis unendlich: Einmal pro *n* gecrawlten Seiten werden Infos ausgegeben. 
+  - `print_one_per: 1` <br>
+  Einmal pro *n* gecrawlten Seiten werden Infos ausgegeben. 
 - #### `file`
   Filteroptionen für die Ausgabe des finalen Texts in eine Datei - können jeweils deaktiviert werden, indem der Wert auf *-1* gesetzt wird. 
-  - `percentage_limit` 
+  - `percentage_limit` <br>
   Zahl von 1 bis 100 - jede Seite, auf der mit den gewählten Einstellungen ein niedrigerer Prozentsatz des Gesamttext extrahiert wurde, wird ignoriert. <br>
   *Anmerkung:* Ich bin mir unsicher, in welchen Fällen diese Begrenzung überhaupt Sinn macht, da an sich die Extraktion von weniger Text ja höhere Qualität dieses extrahierten Texts nahelegt. 
-  - `word_count_limit`
+  - `word_count_limit` <br>
   Gesamtzahl der Wörter pro Seite: Jede Seite mit weniger extrahierten Wörtern wird ignoriert. 
-  - `mean_line_lenght_limit`
+  - `mean_line_lenght_limit` <br>
   Durchschnittliche Zahl an Wörtern pro (Text-)Zeile über die gesamte Seite - jede Seite mit kürzeren Zeilen wird ignoriert. <br>
   *Anmerkung:* Diese Metrik hilft zwar, Seiten mit vielen Links / kurzen Zeilen mit wenig brauchbarem Text auszusortieren, allerdings wird es vermutlich stark von der spezifischen Seite abhängen, ob diese Metrik Sinn macht und welcher Wert jeweils gut funktioniert. 
 
-- `doublons`
-  Automatische Entfernung von Webseiten mit unterschiedlichen URLs aber **identischem Inhalt**. <br>
+- `doublons` <br>
+  Automatische Entfernung von Webseiten mit **unterschiedlichen URLs aber identischem Inhalt**. <br>
   - Mittels `threshold_value` kann angegeben werden, wie viel Prozent Überlappung gegeben sein müssen, damit die Seite ignoriert wird. 
 
 
