@@ -141,8 +141,7 @@ Bitte als Liste angeben, d.h.
       - #comments
     ``` 
     z.B. jede URL, die '#comments' enthält, also bespielsweise alle Kommentarseiten zu einem Artikel. 
-
-  Da Regex `\` und `/` als Sonderzeichen interpretiert, müssen diese normalerweise escaped werden. Dies passiert hier automatisch, es kann einfach eine URL oder Teil-UR n die *settings*-Datei kopiert werden und mit verschiedenen Regex-wildcards wie `.*`, `\d+` o.ä. kombiniert werden. <br><br>
+ <br>
   **Bitte die verschiedenen Wörter in Form einer Liste angeben! <br>(Beispiel siehe `click-buttons`)** <br>
 
   **Bei dieser Option (und nur dort) können zur `settings.yaml`-Datei auch noch weitere Wörter hinzugefügt werden, während der Crawler läuft.** <br>
