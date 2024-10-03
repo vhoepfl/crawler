@@ -33,7 +33,7 @@ class Crawler:
         self.queue = set([starting_url])
         self.visited = set()
        
-        self.ignored_pages =  re.sub(r'(/|\\)', r'\\\1', '|'.join(self.settings['general']['pages_to_be_ignored'])) \
+        self.ignored_pages =  re.sub(r'(/)', r'\\\1', '|'.join(self.settings['general']['pages_to_be_ignored'])) \
             if self.settings['general']['pages_to_be_ignored'] else ''
         self.ignored_page_types = re.compile(r'.*\.(png|pdf|jpg)')
         self.absolute_url_pattern = re.compile(r'^(?:[a-z+]+:)?\/\/') # matches absolute urls paths as compared to relative ones
