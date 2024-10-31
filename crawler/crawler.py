@@ -299,8 +299,10 @@ class Crawler:
 
         # Remove invisible elements
         if soup.find(lambda tag: tag.has_attr('data-visible')): # If playwright was used
-            match_func = lambda tag: not tag.has_attr('data-visible') or tag['data-visible'] != 'true'
-            decompose_tree(soup, match_func, del_matches=True)
+            pass
+            # Deletes all non-visible elements as long as they are tags (pure strings directly in the html are ignored)
+            match_func = lambda tag: (not tag.has_attr('data-visible') or tag['data-visible'] != 'true') if isinstance(tag, Tag) else True
+            #decompose_tree(soup, match_func, del_matches=True)
         else: 
             match_func = lambda tag: ('display: none' or 'visibility: hidden' or 'opacity: 0' or 'font-size:0px') in tag.get('style', '').lower()
             decompose_tree(soup, match_func, del_matches=True)

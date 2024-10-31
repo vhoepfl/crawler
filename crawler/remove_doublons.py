@@ -14,15 +14,16 @@ class MinHashFilter:
         m = self._get_minhash(article_text)
         self.lsh.insert(url, m)
 
-    def check_new_article(self, article_text:str):
+    def check_new_article(self, article_text:str, verbose:bool = True):
         """
         Returns True if article_text is not similar to any other reference text
         """
         m = self._get_minhash(article_text)
         result = self.lsh.query(m)
         if result: 
-            print('Found duplicate, discarding...')
-            logging.info(f"Deduplication - found probable overlap with {result}")
+            if verbose: 
+                print('Found duplicate, discarding...')
+                logging.info(f"Deduplication - found probable overlap with {result}")
             return False
         return True
 
